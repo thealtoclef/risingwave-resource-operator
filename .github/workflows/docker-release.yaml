@@ -27,6 +27,7 @@ on:
 jobs:
   call-docker-release:
     permissions:
+      id-token: write
       contents: write
       packages: write
     uses: thealtoclef/modular-automations/.github/workflows/docker-release.yaml@main
