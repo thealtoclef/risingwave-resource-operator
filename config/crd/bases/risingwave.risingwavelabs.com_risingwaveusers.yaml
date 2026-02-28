@@ -1,0 +1,607 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: risingwaveusers.risingwave.risingwavelabs.com
+spec:
+  group: risingwave.risingwavelabs.com
+  names:
+    categories:
+    - all
+    - streaming
+    kind: RisingWaveUser
+    listKind: RisingWaveUserList
+    plural: risingwaveusers
+    shortNames:
+    - rwu
+    singular: risingwaveuser
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.userCreated
+      name: User
+      type: boolean
+    - jsonPath: .status.secretCreated
+      name: Secret
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: RisingWaveUserSpec defines the desired state of RisingWaveUser.
+            properties:
+              auth:
+                description: Authentication method configuration.
+                properties:
+                  ldap:
+                    description: LDAP authentication configuration.
+                    properties:
+                      baseDN:
+                        description: Base DN for LDAP searches.
+                        type: string
+                      host:
+                        description: LDAP server host.
+                        type: string
+                      insecureSkipVerify:
+                        description: Skip TLS certificate verification.
+                        type: boolean
+                      port:
+                        default: 389
+                        description: LDAP server port.
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                      useSSL:
+                        description: Use SSL/TLS for LDAP connections.
+                        type: boolean
+                    required:
+                    - baseDN
+                    - host
+                    type: object
+                  oauth:
+                    description: OAuth authentication configuration.
+                    properties:
+                      audience:
+                        description: The audience claim to verify in the JWT token.
+                        items:
+                          type: string
+                        type: array
+                      issuer:
+                        description: The issuer claim to verify in the JWT token.
+                        type: string
+                      jwksUrl:
+                        description: The JWKS (JSON Web Key Set) URL for verifying
+                          JWT tokens.
+                        type: string
+                    required:
+                    - issuer
+                    - jwksUrl
+                    type: object
+                  type:
+                    allOf:
+                    - enum:
+                      - password
+                      - oauth
+                      - ldap
+                    - enum:
+                      - password
+                      - oauth
+                      - ldap
+                    default: password
+                    description: |-
+                      Type of authentication. Valid values are "password", "oauth", "ldap".
+                      Defaults to "password" if not specified.
+                    type: string
+                type: object
+              connectionRef:
+                description: ConnectionRef specifies a direct connection to an externally
+                  managed RisingWave frontend.
+                properties:
+                  credentials:
+                    description: |-
+                      Credentials for connecting to the RisingWave cluster as an admin.
+                      If omitted, connects with username "root" and empty password.
+                    properties:
+                      password:
+                        description: |-
+                          Password is the plaintext admin password.
+                          Not recommended for production; use passwordSecretRef instead.
+                          Defaults to empty string if neither password nor passwordSecretRef is set.
+                        type: string
+                      passwordSecretRef:
+                        description: |-
+                          PasswordSecretRef references a Kubernetes Secret containing the admin password.
+                          Takes precedence over the password field when both are set.
+                        properties:
+                          key:
+                            description: Key in the secret data containing the password.
+                              Defaults to "password".
+                            type: string
+                          name:
+                            description: Name of the secret.
+                            type: string
+                          namespace:
+                            description: Namespace of the secret. Defaults to the
+                              same namespace as the RisingWaveUser.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      username:
+                        default: root
+                        description: Username to connect with.
+                        type: string
+                    type: object
+                  host:
+                    description: Host is the hostname or IP of the RisingWave frontend
+                      service.
+                    type: string
+                  port:
+                    default: 4567
+                    description: Port is the PostgreSQL-compatible port of the RisingWave
+                      frontend.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                required:
+                - host
+                type: object
+              grants:
+                description: Privilege grants on database objects.
+                properties:
+                  databases:
+                    description: Database-level privileges. Each database can contain
+                      nested schema privileges.
+                    items:
+                      description: DatabasePrivilege defines privileges on a database
+                        and its nested objects.
+                      properties:
+                        name:
+                          description: Database name.
+                          type: string
+                        privileges:
+                          description: Privileges to grant. Valid values are CONNECT,
+                            CREATE, ALL.
+                          items:
+                            description: |-
+                              DatabasePrivilegeType represents database privilege types.
+                              Privilege value validation is delegated to RisingWave during SQL execution.
+                            type: string
+                          type: array
+                        schemas:
+                          description: Nested schema-level privileges within this
+                            database.
+                          items:
+                            description: |-
+                              NestedSchemaPrivilege defines privileges on a schema within a database.
+                              The database name is inherited from the parent DatabasePrivilege.
+                            properties:
+                              connections:
+                                items:
+                                  description: |-
+                                    NestedConnectionPrivilege defines privileges on a connection within a schema.
+                                    The database and schema names are inherited from parent levels.
+                                  properties:
+                                    name:
+                                      description: Connection name. Use "*" for all
+                                        connections in the schema.
+                                      type: string
+                                    privileges:
+                                      description: Privileges to grant. Valid values
+                                        are USAGE, ALL.
+                                      items:
+                                        description: |-
+                                          ConnectionPrivilegeType represents connection privilege types.
+                                          Privilege value validation is delegated to RisingWave during SQL execution.
+                                        type: string
+                                      type: array
+                                    withGrantOption:
+                                      description: Grant option allows the grantee
+                                        to grant these privileges to others.
+                                      type: boolean
+                                  required:
+                                  - name
+                                  - privileges
+                                  type: object
+                                type: array
+                              functions:
+                                items:
+                                  description: |-
+                                    NestedFunctionPrivilege defines privileges on a function within a schema.
+                                    The database and schema names are inherited from parent levels.
+                                  properties:
+                                    name:
+                                      description: Function name. Use "*" for all
+                                        functions in the schema.
+                                      type: string
+                                    privileges:
+                                      description: Privileges to grant. Valid values
+                                        are EXECUTE, ALL.
+                                      items:
+                                        description: |-
+                                          FunctionPrivilegeType represents function privilege types.
+                                          Privilege value validation is delegated to RisingWave during SQL execution.
+                                        type: string
+                                      type: array
+                                    withGrantOption:
+                                      description: Grant option allows the grantee
+                                        to grant these privileges to others.
+                                      type: boolean
+                                  required:
+                                  - name
+                                  - privileges
+                                  type: object
+                                type: array
+                              materializedViews:
+                                items:
+                                  description: |-
+                                    NestedMaterializedViewPrivilege defines privileges on a materialized view within a schema.
+                                    The database and schema names are inherited from parent levels.
+                                  properties:
+                                    name:
+                                      description: Materialized view name. Use "*"
+                                        for all materialized views in the schema.
+                                      type: string
+                                    privileges:
+                                      description: Privileges to grant. Valid values
+                                        are SELECT, ALL.
+                                      items:
+                                        description: |-
+                                          MaterializedViewPrivilegeType represents materialized view privilege types.
+                                          Privilege value validation is delegated to RisingWave during SQL execution.
+                                        type: string
+                                      type: array
+                                    withGrantOption:
+                                      description: Grant option allows the grantee
+                                        to grant these privileges to others.
+                                      type: boolean
+                                  required:
+                                  - name
+                                  - privileges
+                                  type: object
+                                type: array
+                              name:
+                                description: Schema name.
+                                type: string
+                              privileges:
+                                description: Privileges to grant. Valid values are
+                                  USAGE, CREATE, ALL.
+                                items:
+                                  description: |-
+                                    SchemaPrivilegeType represents schema privilege types.
+                                    Privilege value validation is delegated to RisingWave during SQL execution.
+                                  type: string
+                                type: array
+                              secrets:
+                                items:
+                                  description: |-
+                                    NestedSecretPrivilege defines privileges on a secret within a schema.
+                                    The database and schema names are inherited from parent levels.
+                                  properties:
+                                    name:
+                                      description: Secret name. Use "*" for all secrets
+                                        in the schema.
+                                      type: string
+                                    privileges:
+                                      description: Privileges to grant. Valid values
+                                        are USAGE, ALL.
+                                      items:
+                                        description: |-
+                                          SecretPrivilegeType represents secret privilege types.
+                                          Privilege value validation is delegated to RisingWave during SQL execution.
+                                        type: string
+                                      type: array
+                                    withGrantOption:
+                                      description: Grant option allows the grantee
+                                        to grant these privileges to others.
+                                      type: boolean
+                                  required:
+                                  - name
+                                  - privileges
+                                  type: object
+                                type: array
+                              sinks:
+                                items:
+                                  description: |-
+                                    NestedSinkPrivilege defines privileges on a sink within a schema.
+                                    The database and schema names are inherited from parent levels.
+                                  properties:
+                                    name:
+                                      description: Sink name. Use "*" for all sinks
+                                        in the schema.
+                                      type: string
+                                    privileges:
+                                      description: Privileges to grant. Valid values
+                                        are SELECT, ALL.
+                                      items:
+                                        description: |-
+                                          SinkPrivilegeType represents sink privilege types.
+                                          Privilege value validation is delegated to RisingWave during SQL execution.
+                                        type: string
+                                      type: array
+                                    withGrantOption:
+                                      description: Grant option allows the grantee
+                                        to grant these privileges to others.
+                                      type: boolean
+                                  required:
+                                  - name
+                                  - privileges
+                                  type: object
+                                type: array
+                              sources:
+                                items:
+                                  description: |-
+                                    NestedSourcePrivilege defines privileges on a source within a schema.
+                                    The database and schema names are inherited from parent levels.
+                                  properties:
+                                    name:
+                                      description: Source name. Use "*" for all sources
+                                        in the schema.
+                                      type: string
+                                    privileges:
+                                      description: Privileges to grant. Valid values
+                                        are SELECT, ALL.
+                                      items:
+                                        description: |-
+                                          SourcePrivilegeType represents source privilege types.
+                                          Privilege value validation is delegated to RisingWave during SQL execution.
+                                        type: string
+                                      type: array
+                                    withGrantOption:
+                                      description: Grant option allows the grantee
+                                        to grant these privileges to others.
+                                      type: boolean
+                                  required:
+                                  - name
+                                  - privileges
+                                  type: object
+                                type: array
+                              tables:
+                                description: Nested object privileges within this
+                                  schema.
+                                items:
+                                  description: |-
+                                    NestedTablePrivilege defines privileges on a table within a schema.
+                                    The database and schema names are inherited from parent levels.
+                                  properties:
+                                    name:
+                                      description: Table name. Use "*" for all tables
+                                        in the schema.
+                                      type: string
+                                    privileges:
+                                      description: Privileges to grant. Valid values
+                                        are SELECT, INSERT, UPDATE, DELETE, TRUNCATE,
+                                        REFERENCES, TRIGGER, ALL.
+                                      items:
+                                        description: |-
+                                          TablePrivilegeType represents table privilege types.
+                                          Privilege value validation is delegated to RisingWave during SQL execution.
+                                        type: string
+                                      type: array
+                                    withGrantOption:
+                                      description: Grant option allows the grantee
+                                        to grant these privileges to others.
+                                      type: boolean
+                                  required:
+                                  - name
+                                  - privileges
+                                  type: object
+                                type: array
+                              views:
+                                items:
+                                  description: |-
+                                    NestedViewPrivilege defines privileges on a view within a schema.
+                                    The database and schema names are inherited from parent levels.
+                                  properties:
+                                    name:
+                                      description: View name. Use "*" for all views
+                                        in the schema.
+                                      type: string
+                                    privileges:
+                                      description: Privileges to grant. Valid values
+                                        are SELECT, INSERT, DELETE, UPDATE, TRIGGER,
+                                        ALL.
+                                      items:
+                                        description: |-
+                                          ViewPrivilegeType represents view privilege types.
+                                          Privilege value validation is delegated to RisingWave during SQL execution.
+                                        type: string
+                                      type: array
+                                    withGrantOption:
+                                      description: Grant option allows the grantee
+                                        to grant these privileges to others.
+                                      type: boolean
+                                  required:
+                                  - name
+                                  - privileges
+                                  type: object
+                                type: array
+                              withGrantOption:
+                                description: Grant option allows the grantee to grant
+                                  these privileges to others.
+                                type: boolean
+                            required:
+                            - name
+                            type: object
+                          type: array
+                        withGrantOption:
+                          description: Grant option allows the grantee to grant these
+                            privileges to others.
+                          type: boolean
+                      required:
+                      - name
+                      type: object
+                    type: array
+                type: object
+              name:
+                description: User name in RisingWave. Defaults to metadata.name if
+                  empty.
+                type: string
+              password:
+                description: Password configuration for the user.
+                properties:
+                  generateRandomLength:
+                    description: |-
+                      Generate a random password with the specified length.
+                      If not specified and no secretRef is provided, a 16-character password will be generated.
+                    format: int32
+                    maximum: 128
+                    minimum: 8
+                    type: integer
+                  secretRef:
+                    description: |-
+                      SecretRef references a secret containing the password.
+                      The secret must contain a 'password' key.
+                    properties:
+                      key:
+                        description: Key in the secret data containing the password.
+                          Defaults to "password".
+                        type: string
+                      name:
+                        description: Name of the secret.
+                        type: string
+                      namespace:
+                        description: Namespace of the secret. Defaults to the same
+                          namespace as the RisingWaveUser.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+              permissions:
+                description: User-level permissions (SUPERUSER, CREATEDB, CREATEUSER).
+                items:
+                  description: |-
+                    UserPermission represents user-level permissions.
+                    Permission value validation is delegated to RisingWave during SQL execution.
+                  type: string
+                type: array
+            required:
+            - connectionRef
+            type: object
+          status:
+            description: RisingWaveUserStatus defines the observed state of RisingWaveUser.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the RisingWaveUser's current state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedGeneration:
+                description: ObservedGeneration is the generation observed by the
+                  controller.
+                format: int64
+                type: integer
+              phase:
+                description: Phase is a high-level summary of where the RisingWaveUser
+                  is in its lifecycle.
+                type: string
+              privilegesSynced:
+                description: PrivilegesSynced indicates whether privileges have been
+                  synced.
+                type: boolean
+              reason:
+                description: Reason provides more detail about the current phase.
+                type: string
+              secretCreated:
+                description: SecretCreated indicates whether the password secret has
+                  been created.
+                type: boolean
+              secretName:
+                description: SecretName is the name of the secret containing the user's
+                  password.
+                type: string
+              userCreated:
+                description: UserCreated indicates whether the user has been created
+                  in RisingWave.
+                type: boolean
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

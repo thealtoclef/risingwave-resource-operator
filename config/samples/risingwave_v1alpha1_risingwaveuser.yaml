@@ -1,0 +1,31 @@
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveUser
+metadata:
+  name: analytics-user
+  namespace: default
+spec:
+  connectionRef:
+    host: risingwave-frontend.default.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      passwordSecretRef:
+        name: risingwave-admin-secret
+        key: password
+  password:
+    generateRandomLength: 16
+  permissions:
+    - CREATEDB
+  grants:
+    databases:
+      - name: dev
+        privileges:
+          - CONNECT
+        schemas:
+          - name: public
+            privileges:
+              - USAGE
+            tables:
+              - name: "*"
+                privileges:
+                  - SELECT

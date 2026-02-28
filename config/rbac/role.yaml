@@ -1,0 +1,52 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - risingwave.risingwavelabs.com
+  resources:
+  - risingwaveusers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - risingwave.risingwavelabs.com
+  resources:
+  - risingwaveusers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - risingwave.risingwavelabs.com
+  resources:
+  - risingwaveusers/status
+  verbs:
+  - get
+  - patch
+  - update
