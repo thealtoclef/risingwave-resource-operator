@@ -487,6 +487,66 @@ func TestOrphanCleanup(t *testing.T) {
 			t.Errorf("Expected 0 orphans, got %d", orphanCount)
 		}
 	})
+
+	t.Run("wildcard in actual but not in spec should revoke wildcard", func(t *testing.T) {
+		actualTables := []rwclient.ObjectPrivilege{
+			{Name: "*", Privileges: []string{"SELECT"}},
+			{Name: "users", Privileges: []string{"SELECT", "INSERT"}},
+		}
+
+		specTableName := "users" // restricted from * to users
+
+		actualMap := make(map[string]rwclient.ObjectPrivilege)
+		for _, tbl := range actualTables {
+			actualMap[tbl.Name] = tbl
+		}
+
+		hasWildcardTable := specTableName == "*"
+		delete(actualMap, specTableName)
+
+		var statements []string
+		for _, orphanTable := range actualMap {
+			if orphanTable.Name == "*" {
+				statements = append(statements, "REVOKE ALL ON ALL TABLES IN SCHEMA")
+			} else if !hasWildcardTable {
+				statements = append(statements, "REVOKE ALL ON TABLE")
+			}
+		}
+
+		if len(statements) != 1 || statements[0] != "REVOKE ALL ON ALL TABLES IN SCHEMA" {
+			t.Errorf("Expected exactly one wildcard revocation, got %v", statements)
+		}
+	})
+
+	t.Run("wildcard in both spec and actual should not revoke anything", func(t *testing.T) {
+		actualTables := []rwclient.ObjectPrivilege{
+			{Name: "*", Privileges: []string{"SELECT"}},
+			{Name: "users", Privileges: []string{"SELECT", "INSERT"}},
+		}
+
+		specTableName := "*"
+
+		actualMap := make(map[string]rwclient.ObjectPrivilege)
+		for _, tbl := range actualTables {
+			actualMap[tbl.Name] = tbl
+		}
+
+		hasWildcardTable := specTableName == "*"
+		delete(actualMap, specTableName)
+
+		var statements []string
+		for _, orphanTable := range actualMap {
+			if orphanTable.Name == "*" {
+				statements = append(statements, "REVOKE ALL ON ALL TABLES IN SCHEMA")
+			} else if !hasWildcardTable {
+				statements = append(statements, "REVOKE ALL ON TABLE")
+			}
+		}
+
+		if len(statements) != 0 {
+			t.Errorf("Expected no revocations when wildcard is in spec, got %v", statements)
+		}
+	})
 }
 
 // TestAllObjectTypesCoverage tests that all 8+ object types are supported.

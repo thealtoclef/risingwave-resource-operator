@@ -404,6 +404,8 @@ func (r *RisingWaveUserReconciler) finalizeRisingWaveUser(ctx context.Context, d
 }
 
 // syncPrivileges uses snapshot-based reconciliation to grant/revoke privileges.
+//
+//nolint:gocyclo // Complex privilege sync logic across 8 object types; refactoring would reduce readability
 func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.DB, rwUser *v1alpha1.RisingWaveUser, userName string) error {
 	logger := log.FromContext(ctx).WithName("syncPrivileges").WithValues("user", userName)
 
@@ -492,11 +494,20 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 				for _, t := range actualSchema.Tables {
 					actualTablesMap[t.Name] = t
 				}
+				hasWildcardTable := false
 				for _, tableSpec := range schemaSpec.Tables {
+					if tableSpec.Name == "*" {
+						hasWildcardTable = true
+					}
 					delete(actualTablesMap, tableSpec.Name)
 				}
 				for _, orphanTable := range actualTablesMap {
-					if orphanTable.Name != "*" {
+					if orphanTable.Name == "*" {
+						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
+							fmt.Sprintf("REVOKE ALL ON ALL TABLES IN SCHEMA %s FROM %s",
+								rwclient.QuoteIdentifier(schemaSpec.Name),
+								rwclient.QuoteUser(userName)))
+					} else if !hasWildcardTable {
 						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
 							fmt.Sprintf("REVOKE ALL ON TABLE %s.%s FROM %s",
 								rwclient.QuoteIdentifier(schemaSpec.Name),
@@ -510,11 +521,20 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 				for _, v := range actualSchema.Views {
 					actualViewsMap[v.Name] = v
 				}
+				hasWildcardView := false
 				for _, viewSpec := range schemaSpec.Views {
+					if viewSpec.Name == "*" {
+						hasWildcardView = true
+					}
 					delete(actualViewsMap, viewSpec.Name)
 				}
 				for _, orphanView := range actualViewsMap {
-					if orphanView.Name != "*" {
+					if orphanView.Name == "*" {
+						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
+							fmt.Sprintf("REVOKE ALL ON ALL VIEWS IN SCHEMA %s FROM %s",
+								rwclient.QuoteIdentifier(schemaSpec.Name),
+								rwclient.QuoteUser(userName)))
+					} else if !hasWildcardView {
 						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
 							fmt.Sprintf("REVOKE ALL ON VIEW %s.%s FROM %s",
 								rwclient.QuoteIdentifier(schemaSpec.Name),
@@ -528,11 +548,20 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 				for _, mv := range actualSchema.MaterializedViews {
 					actualMVsMap[mv.Name] = mv
 				}
+				hasWildcardMV := false
 				for _, mvSpec := range schemaSpec.MaterializedViews {
+					if mvSpec.Name == "*" {
+						hasWildcardMV = true
+					}
 					delete(actualMVsMap, mvSpec.Name)
 				}
 				for _, orphanMV := range actualMVsMap {
-					if orphanMV.Name != "*" {
+					if orphanMV.Name == "*" {
+						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
+							fmt.Sprintf("REVOKE ALL ON ALL MATERIALIZED VIEWS IN SCHEMA %s FROM %s",
+								rwclient.QuoteIdentifier(schemaSpec.Name),
+								rwclient.QuoteUser(userName)))
+					} else if !hasWildcardMV {
 						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
 							fmt.Sprintf("REVOKE ALL ON MATERIALIZED VIEW %s.%s FROM %s",
 								rwclient.QuoteIdentifier(schemaSpec.Name),
@@ -546,11 +575,20 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 				for _, s := range actualSchema.Sources {
 					actualSourcesMap[s.Name] = s
 				}
+				hasWildcardSource := false
 				for _, sourceSpec := range schemaSpec.Sources {
+					if sourceSpec.Name == "*" {
+						hasWildcardSource = true
+					}
 					delete(actualSourcesMap, sourceSpec.Name)
 				}
 				for _, orphanSource := range actualSourcesMap {
-					if orphanSource.Name != "*" {
+					if orphanSource.Name == "*" {
+						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
+							fmt.Sprintf("REVOKE ALL ON ALL SOURCES IN SCHEMA %s FROM %s",
+								rwclient.QuoteIdentifier(schemaSpec.Name),
+								rwclient.QuoteUser(userName)))
+					} else if !hasWildcardSource {
 						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
 							fmt.Sprintf("REVOKE ALL ON SOURCE %s.%s FROM %s",
 								rwclient.QuoteIdentifier(schemaSpec.Name),
@@ -564,11 +602,20 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 				for _, s := range actualSchema.Sinks {
 					actualSinksMap[s.Name] = s
 				}
+				hasWildcardSink := false
 				for _, sinkSpec := range schemaSpec.Sinks {
+					if sinkSpec.Name == "*" {
+						hasWildcardSink = true
+					}
 					delete(actualSinksMap, sinkSpec.Name)
 				}
 				for _, orphanSink := range actualSinksMap {
-					if orphanSink.Name != "*" {
+					if orphanSink.Name == "*" {
+						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
+							fmt.Sprintf("REVOKE ALL ON ALL SINKS IN SCHEMA %s FROM %s",
+								rwclient.QuoteIdentifier(schemaSpec.Name),
+								rwclient.QuoteUser(userName)))
+					} else if !hasWildcardSink {
 						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
 							fmt.Sprintf("REVOKE ALL ON SINK %s.%s FROM %s",
 								rwclient.QuoteIdentifier(schemaSpec.Name),
@@ -582,11 +629,20 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 				for _, c := range actualSchema.Connections {
 					actualConnsMap[c.Name] = c
 				}
+				hasWildcardConn := false
 				for _, connSpec := range schemaSpec.Connections {
+					if connSpec.Name == "*" {
+						hasWildcardConn = true
+					}
 					delete(actualConnsMap, connSpec.Name)
 				}
 				for _, orphanConn := range actualConnsMap {
-					if orphanConn.Name != "*" {
+					if orphanConn.Name == "*" {
+						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
+							fmt.Sprintf("REVOKE ALL ON ALL CONNECTIONS IN SCHEMA %s FROM %s",
+								rwclient.QuoteIdentifier(schemaSpec.Name),
+								rwclient.QuoteUser(userName)))
+					} else if !hasWildcardConn {
 						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
 							fmt.Sprintf("REVOKE ALL ON CONNECTION %s.%s FROM %s",
 								rwclient.QuoteIdentifier(schemaSpec.Name),
@@ -600,11 +656,20 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 				for _, s := range actualSchema.Secrets {
 					actualSecretsMap[s.Name] = s
 				}
+				hasWildcardSecret := false
 				for _, secretSpec := range schemaSpec.Secrets {
+					if secretSpec.Name == "*" {
+						hasWildcardSecret = true
+					}
 					delete(actualSecretsMap, secretSpec.Name)
 				}
 				for _, orphanSecret := range actualSecretsMap {
-					if orphanSecret.Name != "*" {
+					if orphanSecret.Name == "*" {
+						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
+							fmt.Sprintf("REVOKE ALL ON ALL SECRETS IN SCHEMA %s FROM %s",
+								rwclient.QuoteIdentifier(schemaSpec.Name),
+								rwclient.QuoteUser(userName)))
+					} else if !hasWildcardSecret {
 						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
 							fmt.Sprintf("REVOKE ALL ON SECRET %s.%s FROM %s",
 								rwclient.QuoteIdentifier(schemaSpec.Name),
@@ -618,11 +683,20 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 				for _, f := range actualSchema.Functions {
 					actualFuncsMap[f.Name] = f
 				}
+				hasWildcardFunc := false
 				for _, funcSpec := range schemaSpec.Functions {
+					if funcSpec.Name == "*" {
+						hasWildcardFunc = true
+					}
 					delete(actualFuncsMap, funcSpec.Name)
 				}
 				for _, orphanFunc := range actualFuncsMap {
-					if orphanFunc.Name != "*" {
+					if orphanFunc.Name == "*" {
+						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
+							fmt.Sprintf("REVOKE ALL ON ALL FUNCTIONS IN SCHEMA %s FROM %s",
+								rwclient.QuoteIdentifier(schemaSpec.Name),
+								rwclient.QuoteUser(userName)))
+					} else if !hasWildcardFunc {
 						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
 							fmt.Sprintf("REVOKE ALL ON FUNCTION %s.%s FROM %s",
 								rwclient.QuoteIdentifier(schemaSpec.Name),
@@ -768,8 +842,18 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 		allStatementsToSort = append(allStatementsToSort, dbStmts.statements...)
 	}
 
-	// Sort to put REVOKEs before GRANTs (alphabetically REVOKE < GRANT)
-	sort.Strings(allStatementsToSort)
+	// Sort to put REVOKEs before GRANTs
+	sort.Slice(allStatementsToSort, func(i, j int) bool {
+		isRevokeI := strings.HasPrefix(allStatementsToSort[i], "REVOKE")
+		isRevokeJ := strings.HasPrefix(allStatementsToSort[j], "REVOKE")
+		if isRevokeI && !isRevokeJ {
+			return true
+		}
+		if !isRevokeI && isRevokeJ {
+			return false
+		}
+		return allStatementsToSort[i] < allStatementsToSort[j]
+	})
 
 	if len(allStatementsToSort) > 0 {
 		logger.Info("Executing privilege changes", "count", len(allStatementsToSort), "databases", len(statementsByDB))
