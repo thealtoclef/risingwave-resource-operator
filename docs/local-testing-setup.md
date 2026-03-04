@@ -63,11 +63,14 @@ helm repo update
 # Create namespace
 kubectl create namespace risingwave
 
-# Deploy RisingWave
+# Deploy RisingWave (standalone with bundled MinIO state store and PostgreSQL meta store)
 helm install risingwave risingwavelabs/risingwave \
   --namespace risingwave \
   --set standalone.enabled=true \
-  --wait
+  --set tags.minio=true \
+  --set tags.postgresql=true \
+  --wait \
+  --timeout 8m
 
 # Verify deployment
 kubectl get pods -n risingwave

@@ -23,15 +23,15 @@ The operator maintains a connection pool (`internal/rwclient.Pool`) keyed by `na
 
 ### Key Components
 
-| Component | Purpose |
-|-----------|---------|
-| `internal/rwclient.Pool` | PostgreSQL connection management |
-| `internal/rwclient.sql_builder.go` | SQL statement generation (CREATE USER, GRANT, etc.) |
-| `internal/rwclient.privilege_snapshot.go` | Fetch privileges from database |
-| `internal/rwclient.privilege_diff.go` | Calculate diffs between desired and actual |
-| `internal/rwclient.acl_parser.go` | Parse RisingWave ACL format |
-| `internal/utils.password.go` | Generate random passwords |
-| `internal/controller.risingwaveuser_controller.go` | Main reconciler loop |
+| Component                                          | Purpose                                             |
+| -------------------------------------------------- | --------------------------------------------------- |
+| `internal/rwclient.Pool`                           | PostgreSQL connection management                    |
+| `internal/rwclient.sql_builder.go`                 | SQL statement generation (CREATE USER, GRANT, etc.) |
+| `internal/rwclient.privilege_snapshot.go`          | Fetch privileges from database                      |
+| `internal/rwclient.privilege_diff.go`              | Calculate diffs between desired and actual          |
+| `internal/rwclient.acl_parser.go`                  | Parse RisingWave ACL format                         |
+| `internal/utils.password.go`                       | Generate random passwords                           |
+| `internal/controller.risingwaveuser_controller.go` | Main reconciler loop                                |
 
 ## Local Development
 
@@ -119,14 +119,14 @@ make test
 
 ## Package Overview
 
-| Package | Files | Responsibility |
-|---------|-------|-----------------|
-| `api/v1alpha1/` | `*_types.go`, `*_webhook.go` | CRD definitions and webhooks |
-| `internal/rwclient/` | `pool.go`, `sql_builder.go`, `acl_parser.go`, etc. | RisingWave database interaction |
-| `internal/controller/` | `risingwaveuser_controller.go` | Reconciliation logic |
-| `internal/utils/` | `finalizer.go`, `password.go` | Utility functions |
-| `internal/constants/` | `constants.go` | Phase names, reasons, annotations |
-| `config/` | `crd/`, `rbac/`, `manager/`, `default/` | Kubernetes manifests |
+| Package                | Files                                              | Responsibility                    |
+| ---------------------- | -------------------------------------------------- | --------------------------------- |
+| `api/v1alpha1/`        | `*_types.go`, `*_webhook.go`                       | CRD definitions and webhooks      |
+| `internal/rwclient/`   | `pool.go`, `sql_builder.go`, `acl_parser.go`, etc. | RisingWave database interaction   |
+| `internal/controller/` | `risingwaveuser_controller.go`                     | Reconciliation logic              |
+| `internal/utils/`      | `finalizer.go`, `password.go`                      | Utility functions                 |
+| `internal/constants/`  | `constants.go`                                     | Phase names, reasons, annotations |
+| `config/`              | `crd/`, `rbac/`, `manager/`, `default/`            | Kubernetes manifests              |
 
 ## Deploy to Cluster
 
@@ -166,8 +166,8 @@ The operator exposes metrics on `https://0.0.0.0:8443/metrics` via kube-rbac-pro
 Uncomment the prometheus config in `config/default/kustomization.yaml`:
 
 ```yaml
-patchesStrategicMerge:
-- manager_auth_proxy_patch.yaml
+patches:
+- path: manager_auth_proxy_patch.yaml
 resources:
 - ../prometheus  # Uncomment this line
 ```

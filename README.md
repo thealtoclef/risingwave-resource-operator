@@ -31,12 +31,12 @@ This operator addresses these challenges by declaratively managing RisingWave us
 
 ### Components
 
-| Component | Description |
-|-----------|-------------|
+| Component              | Description                                                               |
+| ---------------------- | ------------------------------------------------------------------------- |
 | **RisingWaveUser CRD** | `risingwave.risingwavelabs.com/v1alpha1` — declarative user specification |
-| **Controller** | Reconciliation loop watching CRs and syncing to RisingWave |
-| **Connection Pool** | PostgreSQL connection pool keyed by `namespace/host:port` |
-| **Privilege Engine** | Snapshot-based diff calculation for grant/revoke SQL generation |
+| **Controller**         | Reconciliation loop watching CRs and syncing to RisingWave                |
+| **Connection Pool**    | PostgreSQL connection pool keyed by `namespace/host:port`                 |
+| **Privilege Engine**   | Snapshot-based diff calculation for grant/revoke SQL generation           |
 
 ### Reconciliation Flow
 
@@ -48,12 +48,12 @@ This operator addresses these challenges by declaratively managing RisingWave us
 
 ### Failure Handling
 
-| Failure Mode | Behavior |
-|--------------|----------|
-| Connection refused | Retry with exponential backoff, update status with `ConnectionFailed` reason |
-| Invalid privilege | Log SQL error, continue with remaining statements |
-| Object doesn't exist | Skip GRANT, log warning (idempotent on subsequent reconciles) |
-| Secret missing | Mark `NotReady` with `SecretNotFound` reason |
+| Failure Mode         | Behavior                                                                     |
+| -------------------- | ---------------------------------------------------------------------------- |
+| Connection refused   | Retry with exponential backoff, update status with `ConnectionFailed` reason |
+| Invalid privilege    | Log SQL error, continue with remaining statements                            |
+| Object doesn't exist | Skip GRANT, log warning (idempotent on subsequent reconciles)                |
+| Secret missing       | Mark `NotReady` with `SecretNotFound` reason                                 |
 
 ## Installation
 
@@ -174,26 +174,26 @@ Each database's privileges are executed with proper `USE <database>` context swi
 
 ## Supported Object Types
 
-| Object Type | Privileges |
-|-------------|------------|
-| **Database** | CONNECT, CREATE, ALL |
-| **Schema** | USAGE, CREATE, ALL |
-| **Table** | SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, ALL |
-| **View** | SELECT, INSERT, DELETE, UPDATE, TRIGGER, ALL |
-| **Materialized View** | SELECT, ALL |
-| **Source** | SELECT, ALL |
-| **Sink** | SELECT, ALL |
-| **Connection** | USAGE, ALL |
-| **Secret** | USAGE, ALL |
-| **Function** | EXECUTE, ALL |
+| Object Type           | Privileges                                                         |
+| --------------------- | ------------------------------------------------------------------ |
+| **Database**          | CONNECT, CREATE, ALL                                               |
+| **Schema**            | USAGE, CREATE, ALL                                                 |
+| **Table**             | SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, ALL |
+| **View**              | SELECT, INSERT, DELETE, UPDATE, TRIGGER, ALL                       |
+| **Materialized View** | SELECT, ALL                                                        |
+| **Source**            | SELECT, ALL                                                        |
+| **Sink**              | SELECT, ALL                                                        |
+| **Connection**        | USAGE, ALL                                                         |
+| **Secret**            | USAGE, ALL                                                         |
+| **Function**          | EXECUTE, ALL                                                       |
 
 ## Annotations
 
-| Annotation | Effect |
-|------------|--------|
-| `risingwave.risingwavelabs.com/pause-reconcile: "true"` | Skip reconciliation for this resource |
-| `risingwave.risingwavelabs.com/deletion-policy: "abandon"` | Skip `DROP USER` on resource deletion |
-| `risingwave.risingwavelabs.com/rotate-password: "true"` | Trigger password rotation (auto-cleared) |
+| Annotation                                                 | Effect                                   |
+| ---------------------------------------------------------- | ---------------------------------------- |
+| `risingwave.risingwavelabs.com/pause-reconcile: "true"`    | Skip reconciliation for this resource    |
+| `risingwave.risingwavelabs.com/deletion-policy: "abandon"` | Skip `DROP USER` on resource deletion    |
+| `risingwave.risingwavelabs.com/rotate-password: "true"`    | Trigger password rotation (auto-cleared) |
 
 ## Authentication Types
 
@@ -260,11 +260,11 @@ status:
 
 Exposed on `:8080/metrics` (proxy via `:8443` for Prometheus):
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `risingwave_user_reconcile_total` | Counter | Total reconcile operations |
-| `risingwave_user_reconcile_errors_total` | Counter | Failed reconciles |
-| `risingwave_user_privilege_grants_total` | Counter | GRANT statements executed |
+| Metric                                    | Type    | Description                |
+| ----------------------------------------- | ------- | -------------------------- |
+| `risingwave_user_reconcile_total`         | Counter | Total reconcile operations |
+| `risingwave_user_reconcile_errors_total`  | Counter | Failed reconciles          |
+| `risingwave_user_privilege_grants_total`  | Counter | GRANT statements executed  |
 | `risingwave_user_privilege_revokes_total` | Counter | REVOKE statements executed |
 
 ### Logging
@@ -312,6 +312,8 @@ helm repo add risingwavelabs https://risingwavelabs.github.io/helm-charts
 helm install risingwave risingwavelabs/risingwave \
   --namespace risingwave \
   --set standalone.enabled=true \
+  --set tags.minio=true \
+  --set tags.postgresql=true \
   --wait
 
 # Generate code and build
