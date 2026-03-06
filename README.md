@@ -16,54 +16,50 @@ This operator addresses these challenges by declaratively managing RisingWave us
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Kubernetes Cluster                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌─────────────────────┐  ┌─────────────────────┐          │
-│  │  RisingWaveUser     │  │  RisingWaveConn     │          │
-│  │     CRD             │  │     CRD             │          │
-│  └─────────────────────┘  └─────────────────────┘          │
-│         │                           │                       │
-│         │                           │                       │
-│         ▼                           ▼                       │
-│  ┌──────────────────────────────────────────────────┐     │
-│  │              Operator Controller                  │     │
-│  │  ┌──────────────┐  ┌──────────────┐             │     │
-│  │  │   Reconciler │  │  Reconciler │             │     │
-│  │  │  (User)      │  │ (Conn)       │             │     │
-│  │  └──────────────┘  └──────────────┘             │     │
-│  │  ┌──────────────┐  ┌──────────────┐             │     │
-│  │  │   Reconciler │  │  Reconciler │             │     │
-│  │  │ (Database)   │  │ (Schema)     │             │     │
-│  │  └──────────────┘  └──────────────┘             │     │
-│  └──────────────────────────────────────────────────┘     │
-│                           │                                  │
-│                           │                                  │
-│                           ▼                                  │
-│                    ┌──────────────┐                          │
-│                    │ Connection   │                          │
-│                    │   Pool       │                          │
-│                    └──────────────┘                          │
-│                           │                                    │
-│                           │                                    │
-└───────────────────────────┼────────────────────────────────────┘
-                            │ PostgreSQL Connection
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     RisingWave Instance                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
-│  │  Users     │  │Connections │  │ Databases  │            │
-│  └────────────┘  └────────────┘  └────────────┘            │
-│                                                               │
-│  ┌────────────┐  ┌────────────┐                             │
-│  │  Schemas   │  │ Tables/    │                             │
-│  │            │  │ Views/MVs  │                             │
-│  └────────────┘  └────────────┘                             │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                      Kubernetes Cluster                      │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────────────────────┐                            │
+│  │             CRDs             │                            │
+│  │  - User                      │                            │
+│  │  - Connection                │                            │
+│  │  - Database                  │                            │
+│  │  - Schema                    │                            │
+│  └──────────────────────────────┘                            │
+│                │                                             │
+│                ▼                                             │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │                 Operator Controller                    │  │
+│  │                                                        │  │
+│  │  ┌──────────────┐  ┌──────────────┐                    │  │
+│  │  │ Reconciler   │  │ Reconciler   │                    │  │
+│  │  │ (User)       │  │ (Connection) │                    │  │
+│  │  └──────────────┘  └──────────────┘                    │  │
+│  │                                                        │  │
+│  │  ┌──────────────┐  ┌──────────────┐                    │  │
+│  │  │ Reconciler   │  │ Reconciler   │                    │  │
+│  │  │ (Database)   │  │ (Schema)     │                    │  │
+│  │  └──────────────┘  └──────────────┘                    │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                         │                                    │
+│                         ▼                                    │
+│                ┌──────────────────┐                          │
+│                │  Connection Pool │                          │
+│                └──────────────────┘                          │
+│                         │                                    │
+└─────────────────────────┼────────────────────────────────────┘
+                          │ PostgreSQL Connection
+                          ▼
+┌──────────────────────────────────────────────────────────────┐
+│                      RisingWave Instance                     │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   Users        Connections        Databases                  │
+│                                                              │
+│   Schemas      Tables / Views / MVs                          │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### Components
@@ -261,6 +257,15 @@ metadata:
 ```
 
 **Policy**: `abandon` (default) - Database is retained. Use `delete` to drop it.
+
+> **⚠️ Destructive Operations Warning**
+>
+> The operator's `deletion-policy: "delete"` annotation triggers **irreversible operations** that can delete production data:
+>
+> - **DROP DATABASE**: Deletes the entire database and ALL data within it. Cannot be undone.
+> - **DROP SCHEMA CASCADE**: Automatically deletes all objects in the schema (tables, views, materialized views, etc.) and any objects that depend on those objects. Cannot be undone.
+>
+> **Always use `deletion-policy: "abandon"`** for safety by default unless you explicitly intend to delete the resource and its data.
 
 ## RisingWaveSchema CRD
 
