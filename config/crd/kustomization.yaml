@@ -2,6 +2,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - bases/risingwave.risingwavelabs.com_risingwaveusers.yaml
+  - bases/risingwave.risingwavelabs.com_risingwavedatabases.yaml
+  - bases/risingwave.risingwavelabs.com_risingwaveschemas.yaml
+  - bases/risingwave.risingwavelabs.com_risingwaveconnections.yaml
 commonLabels:
   app.kubernetes.io/name: risingwave-resource-operator
   app.kubernetes.io/component: crd
