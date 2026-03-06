@@ -1,0 +1,26 @@
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveSchema
+metadata:
+  name: staging-schema
+  # To actually drop the schema when deleting this CR, uncomment:
+  # annotations:
+  #   risingwave.risingwavelabs.com/deletion-policy: "delete"
+spec:
+  connectionRef:
+    host: risingwave-frontend.default.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      passwordSecretRef:
+        name: risingwave-admin-secret
+        key: password
+
+  # Database this schema belongs to
+  databaseRef:
+    name: analytics
+
+  # Schema name (defaults to metadata.name)
+  name: staging
+
+  # Schema owner
+  owner: admin_user

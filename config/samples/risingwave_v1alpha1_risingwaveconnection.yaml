@@ -1,0 +1,85 @@
+# Kafka connection example
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveConnection
+metadata:
+  name: kafka-connection
+  # To drop the connection when deleting this CR, uncomment:
+  # annotations:
+  #   risingwave.risingwavelabs.com/deletion-policy: "delete"
+spec:
+  connectionRef:
+    host: risingwave-frontend.default.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      passwordSecretRef:
+        name: risingwave-admin-secret
+        key: password
+
+  databaseRef:
+    name: analytics
+
+  schemaRef:
+    name: public
+
+  name: kafka_prod
+  type: kafka
+
+  properties:
+    properties.bootstrap.server: "kafka-broker-1:9092,kafka-broker-2:9092"
+    properties.security.protocol: "SASL_SSL"
+    properties.sasl.mechanism: "PLAIN"
+    properties.sasl.username: "my-user"
+    properties.sasl.password: "SECRET kafka_credentials"  # SECRET prefix references RisingWave secret
+---
+# Schema Registry connection example
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveConnection
+metadata:
+  name: schema-registry-connection
+spec:
+  connectionRef:
+    host: risingwave-frontend.default.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      passwordSecretRef:
+        name: risingwave-admin-secret
+
+  databaseRef:
+    name: analytics
+
+  type: schema_registry
+
+  properties:
+    schema.registry: "https://schema-registry:8081"
+    schema.registry.username: "admin"
+    schema.registry.password: "SECRET schema_registry_credentials"
+---
+# Iceberg connection example
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveConnection
+metadata:
+  name: iceberg-connection
+spec:
+  connectionRef:
+    host: risingwave-frontend.default.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      passwordSecretRef:
+        name: risingwave-admin-secret
+
+  databaseRef:
+    name: analytics
+
+  type: iceberg
+
+  properties:
+    catalog.name: "demo"
+    catalog.type: "storage"
+    warehouse.path: "s3a://hummock001/iceberg-data"
+    s3.endpoint: "http://127.0.0.1:9301"
+    s3.region: "us-east-1"
+    s3.access.key: "hummockadmin"
+    s3.secret.key: "SECRET iceberg_s3_credentials"  # Using secret for sensitive value

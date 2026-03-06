@@ -1,0 +1,29 @@
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveDatabase
+metadata:
+  name: analytics-database
+  # To actually drop the database when deleting this CR, uncomment:
+  # annotations:
+  #   risingwave.risingwavelabs.com/deletion-policy: "delete"
+spec:
+  connectionRef:
+    host: risingwave-frontend.default.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      passwordSecretRef:
+        name: risingwave-admin-secret
+        key: password
+
+  # Database name (defaults to metadata.name)
+  name: analytics
+
+  # Database owner
+  owner: admin_user
+
+  # Schemas to create
+  schemas:
+    - name: public_data
+      owner: admin_user
+    - name: private_data
+      owner: admin_user
