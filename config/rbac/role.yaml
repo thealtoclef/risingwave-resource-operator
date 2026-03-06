@@ -27,6 +27,9 @@ rules:
 - apiGroups:
   - risingwave.risingwavelabs.com
   resources:
+  - risingwaveconnections
+  - risingwavedatabases
+  - risingwaveschemas
   - risingwaveusers
   verbs:
   - create
@@ -39,12 +42,18 @@ rules:
 - apiGroups:
   - risingwave.risingwavelabs.com
   resources:
+  - risingwaveconnections/finalizers
+  - risingwavedatabases/finalizers
+  - risingwaveschemas/finalizers
   - risingwaveusers/finalizers
   verbs:
   - update
 - apiGroups:
   - risingwave.risingwavelabs.com
   resources:
+  - risingwaveconnections/status
+  - risingwavedatabases/status
+  - risingwaveschemas/status
   - risingwaveusers/status
   verbs:
   - get

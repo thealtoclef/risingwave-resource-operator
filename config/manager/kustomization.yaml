@@ -4,8 +4,8 @@ resources:
 - manager.yaml
 images:
 - name: controller
-  newName: ghcr.io/risingwavelabs/risingwave-resource-operator
-  newTag: v8
+  newName: risingwave-resource-operator
+  newTag: dev
 commonLabels:
   app.kubernetes.io/component: manager
   app.kubernetes.io/name: risingwave-resource-operator
