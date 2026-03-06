@@ -52,13 +52,24 @@ const (
 	ReasonCompleted = "Successfully reconciled"
 
 	// Errors
-	ReasonFailedToFinalize       = "Failed to finalize"
-	ReasonFailedToGetSecret      = "Failed to get Secret"
-	ReasonConnectionFailed       = "Failed to connect to RisingWave"
-	ReasonFailedToCreateUser     = "Failed to create user"
-	ReasonFailedToUpdatePassword = "Failed to update password"
-	ReasonFailedToGrant          = "Failed to reconcile privileges"
-	ReasonFailedToCreateSecret   = "Failed to create/update credential secret"
+	ReasonFailedToFinalize         = "Failed to finalize"
+	ReasonFailedToGetSecret        = "Failed to get Secret"
+	ReasonConnectionFailed         = "Failed to connect to RisingWave"
+	ReasonFailedToCreateUser       = "Failed to create user"
+	ReasonFailedToUpdatePassword   = "Failed to update password"
+	ReasonFailedToGrant            = "Failed to reconcile privileges"
+	ReasonFailedToCreateSecret     = "Failed to create/update credential secret"
+	ReasonFailedToCreateDatabase   = "Failed to create database"
+	ReasonFailedToUpdateOwner      = "Failed to update owner"
+	ReasonFailedToSyncSchemas      = "Failed to sync schemas"
+	ReasonFailedToCreateSchema     = "Failed to create schema"
+	ReasonFailedToCreateConnection = "Failed to create connection"
+	ReasonUpdateNotSupported       = "Update not supported"
+)
+
+// Deletion policy values for annotation.
+const (
+	DeletionPolicyDelete = "delete"
 )
 
 // Annotation constants.

@@ -74,6 +74,27 @@ func TestReasonConstants(t *testing.T) {
 		{"ReasonFailedToUpdatePassword", ReasonFailedToUpdatePassword, "Failed to update password"},
 		{"ReasonFailedToGrant", ReasonFailedToGrant, "Failed to reconcile privileges"},
 		{"ReasonFailedToCreateSecret", ReasonFailedToCreateSecret, "Failed to create/update credential secret"},
+		{"ReasonFailedToCreateDatabase", ReasonFailedToCreateDatabase, "Failed to create database"},
+		{"ReasonFailedToUpdateOwner", ReasonFailedToUpdateOwner, "Failed to update owner"},
+		{"ReasonFailedToSyncSchemas", ReasonFailedToSyncSchemas, "Failed to sync schemas"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.actual != tt.expected {
+				t.Errorf("%s = %q, want %q", tt.name, tt.actual, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDeletionPolicyConstants(t *testing.T) {
+	tests := []struct {
+		name     string
+		actual   string
+		expected string
+	}{
+		{"DeletionPolicyDelete", DeletionPolicyDelete, "delete"},
 	}
 
 	for _, tt := range tests {
