@@ -318,11 +318,13 @@ spec:
 
 ## Annotations Reference
 
-| Annotation | Value | Effect |
-|-----------|-------|--------|
-| `risingwave.risingwavelabs.com/pause-reconcile` | `"true"` | Pause reconciliation for this resource |
-| `risingwave.risingwavelabs.com/deletion-policy` | `"abandon"` | Skip `DROP USER` on resource deletion |
-| `risingwave.risingwavelabs.com/rotate-password` | `"true"` | Trigger password rotation |
+| Annotation | Value | Effect | Applies To |
+|-----------|-------|--------|------------|
+| `risingwave.risingwavelabs.com/pause-reconcile` | `"true"` | Pause reconciliation for this resource | All CRDs |
+| `risingwave.risingwavelabs.com/deletion-policy` | `"abandon"` | Skip `DROP` on resource deletion | All CRDs |
+| `risingwave.risingwavelabs.com/rotate-password` | `"true"` | Trigger password rotation | RisingWaveUser |
+
+**Deletion Policy**: `abandon` (default) - Resource is retained. Use `delete` to remove it from RisingWave.
 
 ## Status Fields
 
@@ -442,6 +444,116 @@ spec:
                   - SELECT
                   - INSERT
 ```
+
+## Resource Types
+
+The operator supports multiple CRDs for managing RisingWave resources at different scopes:
+
+### List All CRDs
+
+```bash
+kubectl get crd
+# risingwaveconnections.risingwavelabs.com
+# risingwavedatabases.risingwavelabs.com
+# risingwaveschemas.risingwavelabs.com
+# risingwaveusers.risingwavelabs.com
+```
+
+### RisingWaveDatabase CRD
+
+Database-level resource management with owner and deletion policy.
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveDatabase
+metadata:
+  name: analytics-db
+  namespace: default
+spec:
+  connectionRef:
+    host: risingwave.example.com
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  name: analytics
+  owner: "analytics_admin"
+```
+
+**Deletion Policy**:
+
+```yaml
+metadata:
+  annotations:
+    # Skip DROP DATABASE on deletion (default)
+    risingwave.risingwavelabs.com/deletion-policy: "abandon"
+  # Or explicitly drop the database
+  # risingwave.risingwavelabs.com/deletion-policy: "delete"
+```
+
+### RisingWaveSchema CRD
+
+Schema-scoped resource management with safe-by-default deletion.
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveSchema
+metadata:
+  name: reports-schema
+  namespace: default
+spec:
+  connectionRef:
+    host: risingwave.example.com
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  databaseRef:
+    name: analytics
+  name: reports
+```
+
+### RisingWaveConnection CRD
+
+Reusable connection objects for sources, sinks, and tables with secret support.
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveConnection
+metadata:
+  name: kafka-connection
+spec:
+  connectionRef:
+    host: risingwave.example.com
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  databaseRef:
+    name: analytics
+  name: kafka_prod
+  type: kafka
+  properties:
+    properties.bootstrap.server: "kafka-broker-1:9092"
+    properties.security.protocol: "SASL_SSL"
+    properties.sasl.username: "my-user"
+    properties.sasl.password: "SECRET kafka_credentials"
+```
+
+**Secret Reference**: Prefix value with `SECRET ` to reference a RisingWave secret:
+
+- `"SECRET my_secret"` → renders as `SECRET my_secret` in SQL
+- `"literal_value"` → renders as `'literal_value'` in SQL
+
+## Annotations Reference
+
+| Annotation | Value | Effect | Applies To |
+|------------|-------|--------|------------|
+| `risingwave.risingwavelabs.com/pause-reconcile` | `"true"` | Pause reconciliation for this resource | All CRDs |
+| `risingwave.risingwavelabs.com/deletion-policy` | `"abandon"` | Skip `DROP` on resource deletion | All CRDs |
+| `risingwave.risingwavelabs.com/rotate-password` | `"true"` | Trigger password rotation | RisingWaveUser |
+
+**Deletion Policy**: `abandon` (default) - Resource is retained. Use `delete` to remove it from RisingWave.
 
 ## Uninstall
 

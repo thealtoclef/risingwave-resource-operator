@@ -20,6 +20,10 @@ This operator addresses these challenges by declaratively managing RisingWave us
 │ RisingWaveUser  │────▶│ risingwave-resource-     │────▶│  RisingWave     │
 │   CR (K8s)      │     │    operator controller   │     │  Database       │
 └─────────────────┘     └──────────────────────────┘     └─────────────────┘
+┌─────────────────┐     ┌──────────────────────────┐     ┌─────────────────┐
+│ RisingWaveConn  │────▶│ risingwave-resource-     │────▶│  Connections    │
+│   (K8s)         │     │    operator controller   │     │  & Schemas      │
+└─────────────────┘     └──────────────────────────┘     └─────────────────┘
                               │                   ▲
                               │                   │
                               ▼                   │
@@ -31,12 +35,16 @@ This operator addresses these challenges by declaratively managing RisingWave us
 
 ### Components
 
-| Component              | Description                                                               |
-| ---------------------- | ------------------------------------------------------------------------- |
-| **RisingWaveUser CRD** | `risingwave.risingwavelabs.com/v1alpha1` — declarative user specification |
-| **Controller**         | Reconciliation loop watching CRs and syncing to RisingWave                |
-| **Connection Pool**    | PostgreSQL connection pool keyed by `namespace/host:port`                 |
-| **Privilege Engine**   | Snapshot-based diff calculation for grant/revoke SQL generation           |
+| Component                   | Description                                                               |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| **RisingWaveUser CRD**       | `risingwave.risingwavelabs.com/v1alpha1` — declarative user specification |
+| **RisingWaveConnection CRD** | `risingwave.risingwavelabs.com/v1alpha1` — connection configuration       |
+| **RisingWaveDatabase CRD**   | `risingwave.risingwavelabs.com/v1alpha1` — database management            |
+| **RisingWaveSchema CRD**     | `risingwave.risingwavelabs.com/v1alpha1` — schema-scoped resources        |
+| **Controller**               | Reconciliation loop watching CRs and syncing to RisingWave                |
+| **Connection Pool**          | PostgreSQL connection pool keyed by `namespace/host:port`                 |
+| **Privilege Engine**         | Snapshot-based diff calculation for grant/revoke SQL generation           |
+| **SQL Builder**              | SQL generation for CREATE/ALTER/DROP operations for all resource types     |
 
 ### Reconciliation Flow
 
@@ -172,6 +180,175 @@ grants:
 
 Each database's privileges are executed with proper `USE <database>` context switching.
 
+### Multi-CRD Resource Management
+
+The operator now supports three new CRDs for managing RisingWave resources at different scopes:
+
+```bash
+# List all CRD types
+kubectl get crd
+# risingwaveconnections.risingwave.risingwavelabs.com
+# risingwavedatabases.risingwave.risingwavelabs.com
+# risingwaveschemas.risingwave.risingwavelabs.com
+# risingwaveusers.risingwave.risingwavelabs.com
+```
+
+## RisingWaveDatabase CRD
+
+Database-level resource management with owner and admin credentials.
+
+### Create a Database
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveDatabase
+metadata:
+  name: analytics-db
+  namespace: default
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  name: analytics
+  owner: "analytics_admin"
+```
+
+### Deletion Policy
+
+```yaml
+metadata:
+  annotations:
+    # Skip DROP DATABASE on deletion (default)
+    risingwave.risingwavelabs.com/deletion-policy: "abandon"
+  # Or explicitly drop the database
+  # risingwave.risingwavelabs.com/deletion-policy: "delete"
+```
+
+**Policy**: `abandon` (default) - Database is retained. Use `delete` to drop it.
+
+## RisingWaveSchema CRD
+
+Schema-scoped resource management with safe-by-default deletion.
+
+### Create a Schema
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveSchema
+metadata:
+  name: reports-schema
+  namespace: default
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  databaseRef:
+    name: analytics
+  name: reports
+```
+
+### Create Multiple Schemas
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveSchema
+metadata:
+  name: multiple-schemas
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  databaseRef:
+    name: analytics
+  name: public
+---
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveSchema
+metadata:
+  name: multiple-schemas
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  databaseRef:
+    name: analytics
+  name: reporting
+```
+
+## RisingWaveConnection CRD
+
+Reusable connection objects for sources, sinks, and tables. Supports literal values and RisingWave secret references.
+
+### Kafka Connection
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveConnection
+metadata:
+  name: kafka-connection
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  databaseRef:
+    name: analytics
+  name: kafka_prod
+  type: kafka
+  properties:
+    properties.bootstrap.server: "kafka-broker-1:9092,kafka-broker-2:9092"
+    properties.security.protocol: "SASL_SSL"
+    properties.sasl.mechanism: "PLAIN"
+    properties.sasl.username: "my-user"
+    properties.sasl.password: "SECRET kafka_credentials"  # Secret reference
+```
+
+### Iceberg Connection
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveConnection
+metadata:
+  name: iceberg-connection
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  databaseRef:
+    name: analytics
+  name: iceberg_minio
+  type: iceberg
+  properties:
+    catalog.type: "storage"
+    catalog.name: "demo"
+    warehouse.path: "s3a://iceberg-data/"
+    s3.endpoint: "http://minio.risingwave.svc.cluster.local:9000"
+    s3.region: "us-east-1"
+    s3.access.key: "minioadmin"
+    s3.secret.key: "SECRET minio_credentials"
+```
+
+**Secret Reference**: Prefix value with `SECRET ` to reference a RisingWave secret:
+- `"SECRET my_secret"` → renders as `SECRET my_secret` in SQL
+- `"literal_value"` → renders as `'literal_value'` in SQL
+
 ## Supported Object Types
 
 | Object Type           | Privileges                                                         |
@@ -189,11 +366,13 @@ Each database's privileges are executed with proper `USE <database>` context swi
 
 ## Annotations
 
-| Annotation                                                 | Effect                                   |
-| ---------------------------------------------------------- | ---------------------------------------- |
-| `risingwave.risingwavelabs.com/pause-reconcile: "true"`    | Skip reconciliation for this resource    |
-| `risingwave.risingwavelabs.com/deletion-policy: "abandon"` | Skip `DROP USER` on resource deletion    |
-| `risingwave.risingwavelabs.com/rotate-password: "true"`    | Trigger password rotation (auto-cleared) |
+| Annotation                                                 | Effect                                   | Applies To |
+| ---------------------------------------------------------- | ---------------------------------------- | ---------- |
+| `risingwave.risingwavelabs.com/pause-reconcile: "true"`    | Skip reconciliation for this resource    | All CRDs    |
+| `risingwave.risingwavelabs.com/deletion-policy: "abandon"` | Skip `DROP` on resource deletion         | All CRDs    |
+| `risingwave.risingwavelabs.com/rotate-password: "true"`    | Trigger password rotation (auto-cleared) | RisingWaveUser |
+
+**Deletion Policy**: `abandon` (default) - Resource is retained. Use `delete` to remove it from RisingWave.
 
 ## Authentication Types
 
@@ -260,12 +439,18 @@ status:
 
 Exposed on `:8080/metrics` (proxy via `:8443` for Prometheus):
 
-| Metric                                    | Type    | Description                |
-| ----------------------------------------- | ------- | -------------------------- |
-| `risingwave_user_reconcile_total`         | Counter | Total reconcile operations |
-| `risingwave_user_reconcile_errors_total`  | Counter | Failed reconciles          |
-| `risingwave_user_privilege_grants_total`  | Counter | GRANT statements executed  |
-| `risingwave_user_privilege_revokes_total` | Counter | REVOKE statements executed |
+| Metric                                                          | Type    | Description                     |
+| --------------------------------------------------------------- | ------- | ------------------------------- |
+| `risingwave_user_reconcile_total`                               | Counter | Total reconcile operations      |
+| `risingwave_user_reconcile_errors_total`                        | Counter | Failed reconciles               |
+| `risingwave_user_privilege_grants_total`                        | Counter | GRANT statements executed       |
+| `risingwave_user_privilege_revokes_total`                       | Counter | REVOKE statements executed      |
+| `risingwave_connection_created_total`                           | Counter | Connections successfully created |
+| `risingwave_connection_deleted_total`                           | Counter | Connections successfully dropped |
+| `risingwave_database_created_total`                             | Counter | Databases successfully created  |
+| `risingwave_database_deleted_total`                             | Counter | Databases successfully dropped  |
+| `risingwave_schema_created_total`                               | Counter | Schemas successfully created    |
+| `risingwave_schema_deleted_total`                               | Counter | Schemas successfully dropped    |
 
 ### Logging
 

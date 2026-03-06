@@ -497,7 +497,177 @@ spec:
 EOF
 ```
 
-## Step 9: Run Tests
+## Step 9: Test New CRDs
+
+### 9.1: Test RisingWaveDatabase
+
+```bash
+kubectl create namespace test-databases
+
+kubectl apply -f - <<EOF
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveDatabase
+metadata:
+  name: analytics-db
+  namespace: test-databases
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  name: analytics
+  owner: "analytics_admin"
+EOF
+
+# Check status
+kubectl get risingwavedatabase analytics-db -n test-databases
+kubectl describe risingwavedatabase analytics-db -n test-databases
+```
+
+### 9.2: Test RisingWaveSchema
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveSchema
+metadata:
+  name: reports-schema
+  namespace: test-databases
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  databaseRef:
+    name: analytics
+  name: reports
+EOF
+
+# Check status
+kubectl get risingwaveschema reports-schema -n test-databases
+```
+
+### 9.3: Test RisingWaveConnection (Kafka)
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveConnection
+metadata:
+  name: kafka-test
+  namespace: test-databases
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  databaseRef:
+    name: analytics
+  name: kafka_test
+  type: kafka
+  properties:
+    properties.bootstrap.server: "kafka-broker:9092"
+    properties.security.protocol: "PLAINTEXT"
+EOF
+
+# Check status
+kubectl get risingwaveconnection kafka-test -n test-databases
+```
+
+### 9.4: Test Deletion Policy
+
+```bash
+# Test abandon (default)
+kubectl apply -f - <<EOF
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveDatabase
+metadata:
+  name: db-abandon
+  namespace: test-databases
+  annotations:
+    risingwave.risingwavelabs.com/deletion-policy: "abandon"
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  name: db_abandon
+EOF
+
+# Delete CR - database should be retained
+kubectl delete risingwavedatabase db-abandon -n test-databases
+kubectl get risingwavedatabase db-abandon -n test-databases  # Should still exist
+
+# Test delete
+kubectl apply -f - <<EOF
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveDatabase
+metadata:
+  name: db-delete
+  namespace: test-databases
+  annotations:
+    risingwave.risingwavelabs.com/deletion-policy: "delete"
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  name: db_delete
+EOF
+
+# Delete CR - database should be dropped
+kubectl delete risingwavedatabase db-delete -n test-databases
+kubectl get risingwavedatabase db-delete -n test-databases  # Should not exist
+```
+
+### 9.5: Test Secret Reference
+
+```bash
+# First, create a RisingWave secret (requires SecretManagement feature)
+# This is a premium feature and requires proper licensing
+
+# Test with literal values
+kubectl apply -f - <<EOF
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveConnection
+metadata:
+  name: iceberg-literal
+  namespace: test-databases
+spec:
+  connectionRef:
+    host: risingwave.risingwave.svc.cluster.local
+    port: 4567
+    credentials:
+      username: root
+      password: ""
+  databaseRef:
+    name: analytics
+  name: iceberg_literal
+  type: iceberg
+  properties:
+    catalog.type: "storage"
+    catalog.name: "demo"
+    warehouse.path: "s3a://test-bucket/"
+    s3.endpoint: "http://minio:9000"
+    s3.access.key: "minioadmin"
+    s3.secret.key: "minioadmin"
+EOF
+
+# Check status
+kubectl get risingwaveconnection iceberg-literal -n test-databases
+```
+
+## Step 10: Run Tests
 
 ```bash
 # Run all unit tests
