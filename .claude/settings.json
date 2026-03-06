@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(make generate:*)",
+      "Bash(make manifests:*)",
+      "Bash(make fmt:*)",
+      "Bash(make test:*)",
+      "Bash(kubectl get:*)",
+      "Bash(make build:*)",
+      "Bash(kind get:*)"
+    ]
+  }
+}
