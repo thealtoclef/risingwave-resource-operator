@@ -78,3 +78,10 @@ const (
 	PauseReconcileAnnotation = "risingwave.risingwavelabs.com/pause-reconcile"
 	RotatePasswordAnnotation = "risingwave.risingwavelabs.com/rotate-password"
 )
+
+// Schema name constants.
+const (
+	// DefaultSchemaName is the default schema created in every RisingWave database.
+	// This schema should never be deleted.
+	DefaultSchemaName = "public"
+)

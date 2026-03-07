@@ -271,9 +271,18 @@ func (r *RisingWaveSchemaReconciler) finalizeRisingWaveSchema(
 		return nil
 	}
 
+	// Never drop the default "public" schema
+	schemaName := rwSchema.GetSchemaName()
+	if schemaName == constants.DefaultSchemaName {
+		logger.Info("Cannot delete default schema, retaining",
+			"schema", schemaName,
+			"reason", "public schema is created by default and should not be deleted")
+		r.ConnectionPool.Remove(connKey)
+		return nil
+	}
+
 	// Explicit delete requested - switch to database and drop schema
 	dbName := rwSchema.Spec.DatabaseRef.Name
-	schemaName := rwSchema.GetSchemaName()
 
 	// Switch to database
 	useSQL := rwclient.BuildUseDatabaseSQL(dbName)

@@ -111,3 +111,9 @@ func TestReconciliationPeriodConstant(t *testing.T) {
 		t.Errorf("DefaultReconciliationPeriodSeconds = %d, want 60", DefaultReconciliationPeriodSeconds)
 	}
 }
+
+func TestDefaultSchemaNameConstant(t *testing.T) {
+	if DefaultSchemaName != "public" {
+		t.Errorf("DefaultSchemaName = %q, want %q", DefaultSchemaName, "public")
+	}
+}

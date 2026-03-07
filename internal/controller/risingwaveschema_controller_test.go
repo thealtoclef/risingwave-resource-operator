@@ -233,4 +233,38 @@ var _ = Describe("Creating a RisingWaveSchema", func() {
 
 		Expect(fetched.Annotations["risingwave.risingwavelabs.com/deletion-policy"]).To(Equal("delete"))
 	})
+
+	It("should store deletion policy annotation for public schema", func() {
+		ctx := context.Background()
+		rwSchema := &v1alpha1.RisingWaveSchema{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "public-schema-test",
+				Namespace: "default",
+				Annotations: map[string]string{
+					"risingwave.risingwavelabs.com/deletion-policy": "delete",
+				},
+			},
+			Spec: v1alpha1.RisingWaveSchemaSpec{
+				ConnectionRef: v1alpha1.ConnectionRef{
+					Host: "risingwave-frontend.default.svc.cluster.local",
+				},
+				DatabaseRef: v1alpha1.DatabaseRef{
+					Name: "analytics",
+				},
+				Name: "public", // Testing with public schema name
+			},
+		}
+		Expect(k8sClient.Create(ctx, rwSchema)).To(Succeed())
+
+		fetched := &v1alpha1.RisingWaveSchema{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{
+			Name:      rwSchema.Name,
+			Namespace: rwSchema.Namespace,
+		}, fetched)).To(Succeed())
+
+		// Verify the schema name is "public"
+		Expect(fetched.GetSchemaName()).To(Equal("public"))
+		// Verify deletion policy is set
+		Expect(fetched.Annotations["risingwave.risingwavelabs.com/deletion-policy"]).To(Equal("delete"))
+	})
 })
