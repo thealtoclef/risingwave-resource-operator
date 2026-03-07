@@ -18,6 +18,7 @@ package controller_test
 
 import (
 	"context"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -288,9 +289,11 @@ var _ = Describe("Creating a RisingWaveConnection", func() {
 		}
 
 		for _, connType := range connectionTypes {
+			// Replace underscores with hyphens to make valid Kubernetes name
+			sanitizedName := strings.ReplaceAll(string(connType), "_", "-")
 			rwConn := &v1alpha1.RisingWaveConnection{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "type-test-" + string(connType),
+					Name:      "type-test-" + sanitizedName,
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RisingWaveConnectionSpec{
