@@ -1,6 +1,10 @@
 # Risingwave Resource Operator
 
-Kubernetes operator managing RisingWave logical resources (users, privileges) via the `RisingWaveUser` CRD.
+Kubernetes operator managing RisingWave logical resources: databases, schemas, connections, users, and privileges via four CRDs (`RisingWaveDatabase`, `RisingWaveSchema`, `RisingWaveConnection`, `RisingWaveUser`).
+
+## Skills
+
+- **writing-documentation** — Use when writing or updating documentation (README, guides, API docs) to ensure quality standards
 
 ## Commands
 
@@ -24,7 +28,7 @@ go test ./internal/rwclient/... ./internal/utils/... ./internal/constants/... ./
 
 ## Workflow
 
-- After ANY change to `api/v1alpha1/risingwaveuser_types.go`, ALWAYS run both `make generate` and `make manifests`
+- After ANY change to `api/v1alpha1/*_types.go`, ALWAYS run both `make generate` and `make manifests`
 - Never edit generated files directly: `api/v1alpha1/zz_generated.deepcopy.go`, `config/crd/bases/*.yaml`
 - Run `make fmt` and `make vet` before finalizing changes
 - Add `//+kubebuilder:` marker comments to source types, never to generated files
@@ -32,8 +36,8 @@ go test ./internal/rwclient/... ./internal/utils/... ./internal/constants/... ./
 
 ## Architecture
 
-- **API**: `risingwave.risingwavelabs.com/v1alpha1` — see `api/v1alpha1/risingwaveuser_types.go`; grants are hierarchical: databases → schemas → tables/views/MVs/sources/sinks/connections/secrets/functions; object name `"*"` means ALL in schema
-- **Controller**: `internal/controller/risingwaveuser_controller.go` — snapshot-based reconciliation; fetches actual DB state, diffs against spec, executes GRANT/REVOKE; status updated at every error path
+- **API**: `risingwave.risingwavelabs.com/v1alpha1` — see `api/v1alpha1/*_types.go` for all 4 CRDs; grants are hierarchical: databases → schemas → tables/views/MVs/sources/sinks/connections/secrets/functions; object name `"*"` means ALL in schema
+- **Controllers**: `internal/controller/*_controller.go` — snapshot-based reconciliation for each resource type; fetches actual state, diffs against spec, executes CREATE/ALTER/DROP/GRANT/REVOKE; status updated at every error path
 - **Connection pool**: `internal/rwclient/pool.go` — keyed by `namespace/host:port`; dead connections replaced transparently on next Get(); background health checker runs every 30s, removes stale connections idle >10min
 - **Privilege engine**: `internal/rwclient/privilege_snapshot.go` + `privilege_diff.go` — two-phase snapshot fetch (database-level, then per-DB object-level), then set-difference diff
 - **Finalizer**: `internal/utils/finalizer.go` — `HandleFinalizer` runs `FinalizationFunc` then removes finalizer; if finalization fails, finalizer stays and object is stuck in Terminating
