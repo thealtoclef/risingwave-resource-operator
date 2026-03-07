@@ -137,9 +137,10 @@ make test
 | ---------------------- | -------------------------------------------------- | --------------------------------- |
 | `api/v1alpha1/`        | `*_types.go`, `*_webhook.go`                       | CRD definitions and webhooks      |
 | `internal/rwclient/`   | `pool.go`, `sql_builder.go`, `acl_parser.go`, etc. | RisingWave database interaction   |
-| `internal/controller/` | `risingwaveuser_controller.go`                     | Reconciliation logic              |
+| `internal/controller/` | `*_controller.go`                                  | Reconciliation logic (4 types)    |
 | `internal/utils/`      | `finalizer.go`, `password.go`                      | Utility functions                 |
 | `internal/constants/`  | `constants.go`                                     | Phase names, reasons, annotations |
+| `internal/metrics/`    | `metrics.go`                                       | Custom Prometheus metrics         |
 | `config/`              | `crd/`, `rbac/`, `manager/`, `default/`            | Kubernetes manifests              |
 
 ## Deploy to Cluster
@@ -214,29 +215,29 @@ scrape_configs:
 
 ## Code Style and Standards
 
-- **Formatting**: Use `make fmt`
-- **Linting**: Use `make lint` (requires golangci-lint)
-- **Imports**: Organize with blank lines (standard library, Kubernetes, others)
-- **Comments**: Use clear, concise English
-- **Testing**: Write table-driven tests with descriptive names
+-   **Formatting**: Use `make fmt`
+-   **Linting**: Use `make lint` (requires golangci-lint)
+-   **Imports**: Organize with blank lines (standard library, Kubernetes, others)
+-   **Comments**: Use clear, concise English
+-   **Testing**: Write table-driven tests with descriptive names
 
 ## Making Changes
 
-### Adding a New Field to RisingWaveUser
+### Adding a New Field to a CRD
 
-1. Add the field to `api/v1alpha1/risingwaveuser_types.go`
-2. Regenerate code: `make generate`
-3. Regenerate manifests: `make manifests`
-4. Update the controller if needed: `internal/controller/risingwaveuser_controller.go`
-5. Add unit tests for new logic
-6. Run `make test` to verify
+1.  Add the field to the relevant type file in `api/v1alpha1/` (e.g., `risingwaveuser_types.go`).
+2.  Regenerate code: `make generate`.
+3.  Regenerate manifests: `make manifests`.
+4.  Update the corresponding controller in `internal/controller/`.
+5.  Add unit tests in `internal/rwclient/` (if logic changed) and integration tests in the controller package.
+6.  Run `make test` to verify.
 
 ### Adding a New Reconciliation Step
 
-1. Add logic to `internal/controller/risingwaveuser_controller.go`
-2. Add unit tests in `internal/controller/risingwaveuser_controller_test.go`
-3. Run `make test`
-4. Test manually with a sample resource
+1.  Add logic to the `Reconcile` method in the target controller file.
+2.  Add unit/integration tests to verify the new step.
+3.  Run `make test`.
+4.  Test manually with a sample resource in a `kind` cluster.
 
 ## Common Commands
 

@@ -497,7 +497,7 @@ spec:
 EOF
 ```
 
-## Step 9: Test New CRDs
+## Step 9: Test Resource CRDs
 
 ### 9.1: Test RisingWaveDatabase
 
@@ -513,17 +513,12 @@ metadata:
 spec:
   connectionRef:
     host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
   name: analytics
   owner: "analytics_admin"
 EOF
 
 # Check status
 kubectl get risingwavedatabase analytics-db -n test-databases
-kubectl describe risingwavedatabase analytics-db -n test-databases
 ```
 
 ### 9.2: Test RisingWaveSchema
@@ -538,10 +533,6 @@ metadata:
 spec:
   connectionRef:
     host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
   databaseRef:
     name: analytics
   name: reports
@@ -563,12 +554,10 @@ metadata:
 spec:
   connectionRef:
     host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
   databaseRef:
     name: analytics
+  schemaRef:                  # Optional: Target schema name (defaults to "public")
+    name: public
   name: kafka_test
   type: kafka
   properties:
@@ -582,61 +571,17 @@ kubectl get risingwaveconnection kafka-test -n test-databases
 
 ### 9.4: Test Deletion Policy
 
-```bash
-# Test abandon (default)
-kubectl apply -f - <<EOF
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveDatabase
-metadata:
-  name: db-abandon
-  namespace: test-databases
-  annotations:
-    risingwave.risingwavelabs.com/deletion-policy: "abandon"
-spec:
-  connectionRef:
-    host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
-  name: db_abandon
-EOF
+The deletion policy controls whether the operator drops the object in RisingWave when the Kubernetes resource is deleted.
 
-# Delete CR - database should be retained
-kubectl delete risingwavedatabase db-abandon -n test-databases
-kubectl get risingwavedatabase db-abandon -n test-databases  # Should still exist
-
-# Test delete
-kubectl apply -f - <<EOF
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveDatabase
-metadata:
-  name: db-delete
-  namespace: test-databases
-  annotations:
-    risingwave.risingwavelabs.com/deletion-policy: "delete"
-spec:
-  connectionRef:
-    host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
-  name: db_delete
-EOF
-
-# Delete CR - database should be dropped
-kubectl delete risingwavedatabase db-delete -n test-databases
-kubectl get risingwavedatabase db-delete -n test-databases  # Should not exist
-```
+- `abandon` (default): Deleting the CR does *not* delete the object in RisingWave.
+- `delete`: Deleting the CR *will* drop the object in RisingWave.
 
 ### 9.5: Test Secret Reference
 
-```bash
-# First, create a RisingWave secret (requires SecretManagement feature)
-# This is a premium feature and requires proper licensing
+The `RisingWaveConnection` can reference secrets managed within RisingWave (using `CREATE SECRET` in SQL). Note that this is distinct from Kubernetes secrets.
 
-# Test with literal values
+```bash
+# Test with literal values (standard for most testing)
 kubectl apply -f - <<EOF
 apiVersion: risingwave.risingwavelabs.com/v1alpha1
 kind: RisingWaveConnection
@@ -646,12 +591,10 @@ metadata:
 spec:
   connectionRef:
     host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
   databaseRef:
     name: analytics
+  schemaRef:                  # Optional: Target schema name (defaults to "public")
+    name: public
   name: iceberg_literal
   type: iceberg
   properties:
@@ -662,6 +605,7 @@ spec:
     s3.access.key: "minioadmin"
     s3.secret.key: "minioadmin"
 EOF
+```
 
 # Check status
 kubectl get risingwaveconnection iceberg-literal -n test-databases
@@ -722,116 +666,90 @@ kubectl exec -n risingwave-resource-operator-system \
 | Password mismatch | Use rotation annotation to generate new password |
 | Connection refused | Verify service name, port, and network policies |
 
-## Cleanup
+## Step 11: Cleanup
 
 ```bash
-# Delete test users
-kubectl delete risingwaveuser -n test-users --all
-kubectl delete namespace test-users
+# 1. Delete all resources across all test namespaces
+kubectl delete risingwaveusers --all -A
+kubectl delete risingwaveconnections --all -A
+kubectl delete risingwaveschemas --all -A
+kubectl delete risingwavedatabases --all -A
 
-# Uninstall operator
+# 2. Delete namespaces
+kubectl delete namespace test-users test-databases
+
+# 3. Uninstall operator
 make uninstall
 
-# Delete RisingWave
-helm uninstall risingwave -n risingwave
-kubectl delete namespace risingwave
-
-# Delete kind cluster
+# 4. Clean up cluster
 kind delete cluster --name risingwave-test
 ```
 
-## API Reference
+## API Reference Summary
 
-### RisingWaveUser Spec Structure
+### Shared: ConnectionRef
+
+```yaml
+connectionRef:
+  host: string                 # Required
+  port: int32                  # default: 4567
+  credentials:
+    username: string           # default: "root"
+    passwordSecretRef:
+      name: string
+      key: string
+```
+
+### RisingWaveDatabase
 
 ```yaml
 spec:
-  name: string                          # RisingWave username
-  connectionRef:
-    host: string                        # RisingWave service host
-    port: int32                          # Port (default: 4567)
-    credentials:
-      username: string
-      password: string
-      passwordSecretRef:
-        name: string
-        namespace: string
-        key: string
-  password:
-    secretRef:
-      name: string
-      namespace: string
-      key: string
-    generateRandomLength: int32          # 8-32
-  auth:
-    type: string                        # "password", "oauth", "ldap"
-    oauth:
-      jwksUrl: string
-      issuer: string
-    ldap:
-      host: string
-      port: int32
-      baseDN: string
-  permissions: [string]                  # User-level permissions
+  connectionRef: ConnectionRef # Required
+  name: string                 # RisingWave DB name
+  owner: string                # Initial owner
+```
+
+### RisingWaveSchema
+
+```yaml
+spec:
+  connectionRef: ConnectionRef # Required
+  databaseRef: { name: string } # Required
+  name: string                 # RisingWave schema name
+```
+
+### RisingWaveConnection
+
+```yaml
+spec:
+  connectionRef: ConnectionRef # Required
+  databaseRef: { name: string } # Required
+  schemaRef: { name: string }   # default: "public"
+  name: string                 # Connection name
+  type: string                 # e.g., "kafka"
+  properties: map[string]string
+```
+
+### RisingWaveUser
+
+```yaml
+spec:
+  connectionRef: ConnectionRef # Required
+  name: string                 # RisingWave username
+  password: { secretRef, generateRandomLength }
+  auth: { type, oauth, ldap }
   grants:
     databases:
       - name: string
-        privileges: [DatabasePrivilegeType]  # CONNECT, CREATE, ALL
-        withGrantOption: bool
+        privileges: [string]
         schemas:
           - name: string
-            privileges: [SchemaPrivilegeType]    # USAGE, CREATE, ALL
-            withGrantOption: bool
+            privileges: [string]
             tables:
-              - name: string              # or "*" for wildcard
-                privileges: [TablePrivilegeType]
-                withGrantOption: bool
-            views:
               - name: string
-                privileges: [ViewPrivilegeType]
-            materializedViews:
-              - name: string
-                privileges: [MaterializedViewPrivilegeType]
-            sources:
-              - name: string
-                privileges: [SourcePrivilegeType]
-            sinks:
-              - name: string
-                privileges: [SinkPrivilegeType]
-            connections:
-              - name: string
-                privileges: [ConnectionPrivilegeType]
-            secrets:
-              - name: string
-                privileges: [SecretPrivilegeType]
-            functions:
-              - name: string
-                privileges: [FunctionPrivilegeType]
+                privileges: [string]
 ```
-
-## Annotations
-
-| Annotation | Description |
-|------------|-------------|
-| `risingwave.risingwavelabs.com/pause-reconcile` | Pause reconciliation (value: "true") |
-| `risingwave.risingwavelabs.com/deletion-policy` | Deletion policy (value: "abandon") |
-| `risingwave.risingwavelabs.com/rotate-password` | Rotate password (value: "true") |
-
-## Supported Object Types
-
-| Object Type | Supported Privileges |
-|-------------|---------------------|
-| **Database** | CONNECT, CREATE, ALL |
-| **Schema** | USAGE, CREATE, ALL |
-| **Table** | SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, ALL |
-| **View** | SELECT, INSERT, DELETE, UPDATE, TRIGGER, ALL |
-| **Materialized View** | SELECT, ALL |
-| **Source** | SELECT, ALL |
-| **Sink** | SELECT, ALL |
-| **Connection** | USAGE, ALL |
-| **Secret** | USAGE, ALL |
-| **Function** | EXECUTE, ALL |
 
 ---
 
-Last updated: 2026-02-28
+Last updated: 2026-03-07

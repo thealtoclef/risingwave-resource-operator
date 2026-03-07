@@ -1,21 +1,21 @@
 # RisingWave Kubernetes Resource Operator
 
-A Kubernetes operator for managing RisingWave users and privileges through custom resources.
+A Kubernetes operator for declaratively managing RisingWave resources including users, privileges, databases, schemas, and connections.
 
 ## Problem Statement
 
-RisingWave provides SQL-based user and privilege management via `CREATE USER`, `GRANT`, and `REVOKE` statements. Managing users across multiple RisingWave deployments, environments, or teams requires:
+RisingWave provides SQL-based resource management via `CREATE USER`, `GRANT`, `CREATE DATABASE`, and other statements. Managing these resources across multiple RisingWave deployments, environments, or teams manually is error-prone and lacks:
 
-- Manual SQL execution against each database
-- Audit trails for privilege changes
-- Consistent privilege templates across environments
-- Automated user provisioning/deprovisioning
+- **Idempotency**: Retrying manual SQL scripts often fails if objects already exist.
+- **Audit Trails**: Difficulty tracking who changed what and when in the cluster.
+- **Consistency**: Hard to maintain same resource configurations across dev/staging/prod.
+- **Automation**: Manual bottlenecks in user provisioning and environment setup.
 
-This operator addresses these challenges by declaratively managing RisingWave users as Kubernetes custom resources.
+This operator addresses these challenges by managing RisingWave resources as standard Kubernetes custom resources.
 
 ## Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │                      Kubernetes Cluster                      │
 ├──────────────────────────────────────────────────────────────┤
@@ -77,20 +77,24 @@ This operator addresses these challenges by declaratively managing RisingWave us
 
 ### Reconciliation Flow
 
-1. **User Creation**: Execute `CREATE USER` with password (auto-generated or from secret)
-2. **Privilege Snapshot**: Fetch current privileges from `pg_user_privileges` views
-3. **Diff Calculation**: Compare actual vs. desired state, generate GRANT/REVOKE statements
-4. **Statement Execution**: Execute REVOKEs first, then GRANTs (per database context)
-5. **Status Update**: Reflect sync state in `.status.phase` and `.status.conditions[]`
+The operator follows a consistent reconciliation pattern for all resource types:
+
+1. **Existence Check**: Verify if the resource (user, database, schema, or connection) exists in RisingWave.
+2. **State Snapshot**: Fetch the current configuration and metadata of the existing object.
+3. **Diff Calculation**: Compare the actual state with the desired state defined in the CRD spec.
+4. **Statement Execution**: Generate and execute the necessary SQL commands (`CREATE`, `ALTER`, `GRANT`, `REVOKE`) to reach the desired state.
+5. **Status Update**: Reflect the results in `.status.phase`, `.status.conditions[]`, and observability fields (e.g., `.status.userCreated`).
 
 ### Failure Handling
 
-| Failure Mode         | Behavior                                                                     |
-| -------------------- | ---------------------------------------------------------------------------- |
-| Connection refused   | Retry with exponential backoff, update status with `ConnectionFailed` reason |
-| Invalid privilege    | Log SQL error, continue with remaining statements                            |
-| Object doesn't exist | Skip GRANT, log warning (idempotent on subsequent reconciles)                |
-| Secret missing       | Mark `NotReady` with `SecretNotFound` reason                                 |
+| Failure Mode             | Behavior                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| **Connection Refused**   | Retry with exponential backoff, status: `ConnectionFailed`                      |
+| **SQL Syntax Error**     | Log error, mark `Failed`, retry on next sync                                    |
+| **Secret Missing**       | Mark `NotReady` with `SecretNotFound` reason                                    |
+| **Privilege Conflict**   | Log warning, continue with remaining grants if possible                         |
+| **Dependency Missing**   | (e.g., Schema for a Connection) Mark `NotReady` until dependency is satisfied |
+| **Update Not Supported** | Some properties cannot be changed; status updated with `UpdateNotSupported`    |
 
 ## Installation
 
@@ -120,216 +124,46 @@ kubectl get pods -n risingwave-resource-operator-system
 kubectl get crd risingwaveusers.risingwave.risingwavelabs.com
 ```
 
-## Usage
+## Usage & CRD Reference
 
-### Basic User with Table Privileges
+### 1. RisingWaveDatabase
 
-```yaml
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveUser
-metadata:
-  name: alice
-  namespace: default
-spec:
-  name: alice
-  connectionRef:
-    host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
-  password:
-    generateRandomLength: 16
-  grants:
-    databases:
-      - name: dev
-        privileges:
-          - CONNECT
-        schemas:
-          - name: public
-            privileges:
-              - USAGE
-            tables:
-              - name: users
-                privileges:
-                  - SELECT
-                  - INSERT
-```
-
-```bash
-kubectl apply -f alice-user.yaml
-kubectl get risingwaveuser alice
-kubectl get secret risingwave-user-alice -o jsonpath='{.data.password}' | base64 -d
-```
-
-### Wildcard Privileges
-
-```yaml
-grants:
-  databases:
-    - name: dev
-      privileges:
-        - CONNECT
-      schemas:
-        - name: public
-          tables:
-            - name: "*"              # All tables in schema
-              privileges:
-                - SELECT
-```
-
-Generates: `GRANT SELECT ON ALL TABLES IN SCHEMA "public" TO "alice"`
-
-### Multi-Database Support
-
-```yaml
-grants:
-  databases:
-    - name: dev
-      privileges:
-        - CONNECT
-      schemas:
-        - name: public
-          tables:
-            - name: users
-              privileges:
-                - SELECT
-    - name: analytics
-      privileges:
-        - CONNECT
-        - CREATE
-      schemas:
-        - name: reporting
-          tables:
-            - name: reports
-              privileges:
-                - SELECT
-                - INSERT
-```
-
-Each database's privileges are executed with proper `USE <database>` context switching.
-
-### Multi-CRD Resource Management
-
-The operator now supports three new CRDs for managing RisingWave resources at different scopes:
-
-```bash
-# List all CRD types
-kubectl get crd
-# risingwaveconnections.risingwave.risingwavelabs.com
-# risingwavedatabases.risingwave.risingwavelabs.com
-# risingwaveschemas.risingwave.risingwavelabs.com
-# risingwaveusers.risingwave.risingwavelabs.com
-```
-
-## RisingWaveDatabase CRD
-
-Database-level resource management with owner and admin credentials.
-
-### Create a Database
+Manage databases and their ownership at the cluster level.
 
 ```yaml
 apiVersion: risingwave.risingwavelabs.com/v1alpha1
 kind: RisingWaveDatabase
 metadata:
   name: analytics-db
-  namespace: default
 spec:
   connectionRef:
     host: risingwave.risingwave.svc.cluster.local
     port: 4567
-    credentials:
-      username: root
-      password: ""
-  name: analytics
-  owner: "analytics_admin"
+  name: analytics             # Optional: RisingWave database name (defaults to metadata.name)
+  owner: "analytics_admin"    # Optional: Initial owner of the database
 ```
 
-### Deletion Policy
+### 2. RisingWaveSchema
 
-```yaml
-metadata:
-  annotations:
-    # Skip DROP DATABASE on deletion (default)
-    risingwave.risingwavelabs.com/deletion-policy: "abandon"
-  # Or explicitly drop the database
-  # risingwave.risingwavelabs.com/deletion-policy: "delete"
-```
-
-**Policy**: `abandon` (default) - Database is retained. Use `delete` to drop it.
-
-> **⚠️ Destructive Operations Warning**
->
-> The operator's `deletion-policy: "delete"` annotation triggers **irreversible operations** that can delete production data:
->
-> - **DROP DATABASE**: Deletes the entire database and ALL data within it. Cannot be undone.
-> - **DROP SCHEMA CASCADE**: Automatically deletes all objects in the schema (tables, views, materialized views, etc.) and any objects that depend on those objects. Cannot be undone.
->
-> **Always use `deletion-policy: "abandon"`** for safety by default unless you explicitly intend to delete the resource and its data.
-
-## RisingWaveSchema CRD
-
-Schema-scoped resource management with safe-by-default deletion.
-
-### Create a Schema
+Manage schemas within a specific database.
 
 ```yaml
 apiVersion: risingwave.risingwavelabs.com/v1alpha1
 kind: RisingWaveSchema
 metadata:
   name: reports-schema
-  namespace: default
 spec:
   connectionRef:
     host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
   databaseRef:
-    name: analytics
-  name: reports
+    name: analytics           # Required: Target database name
+  name: reports               # Optional: RisingWave schema name
+  owner: "reports_owner"      # Optional: Initial owner of the schema
 ```
 
-### Create Multiple Schemas
+### 3. RisingWaveConnection
 
-```yaml
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveSchema
-metadata:
-  name: multiple-schemas
-spec:
-  connectionRef:
-    host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
-  databaseRef:
-    name: analytics
-  name: public
----
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveSchema
-metadata:
-  name: multiple-schemas
-spec:
-  connectionRef:
-    host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
-  databaseRef:
-    name: analytics
-  name: reporting
-```
-
-## RisingWaveConnection CRD
-
-Reusable connection objects for sources, sinks, and tables. Supports literal values and RisingWave secret references.
-
-### Kafka Connection
+Reusable connection objects for sources, sinks, and tables. Supports literal values and `SECRET` references.
 
 ```yaml
 apiVersion: risingwave.risingwavelabs.com/v1alpha1
@@ -339,51 +173,46 @@ metadata:
 spec:
   connectionRef:
     host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
   databaseRef:
     name: analytics
-  name: kafka_prod
+  schemaRef:                  # Optional: Target schema name (defaults to "public")
+    name: public
+  name: kafka_prod            # Optional: Connection name in RisingWave
   type: kafka
   properties:
-    properties.bootstrap.server: "kafka-broker-1:9092,kafka-broker-2:9092"
-    properties.security.protocol: "SASL_SSL"
-    properties.sasl.mechanism: "PLAIN"
-    properties.sasl.username: "my-user"
-    properties.sasl.password: "SECRET kafka_credentials"  # Secret reference
+    properties.bootstrap.server: "kafka-broker:9092"
+    properties.sasl.password: "SECRET kafka_credentials"  # Reference a RisingWave secret
 ```
 
-### Iceberg Connection
+### 4. RisingWaveUser
+
+Manage users, authentication methods, and hierarchical privilege grants.
 
 ```yaml
 apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveConnection
+kind: RisingWaveUser
 metadata:
-  name: iceberg-connection
+  name: alice
 spec:
+  name: alice
   connectionRef:
     host: risingwave.risingwave.svc.cluster.local
-    port: 4567
-    credentials:
-      username: root
-      password: ""
-  databaseRef:
-    name: analytics
-  name: iceberg_minio
-  type: iceberg
-  properties:
-    catalog.type: "storage"
-    catalog.name: "demo"
-    warehouse.path: "s3a://iceberg-data/"
-    s3.endpoint: "http://minio.risingwave.svc.cluster.local:9000"
-    s3.region: "us-east-1"
-    s3.access.key: "minioadmin"
-    s3.secret.key: "SECRET minio_credentials"
+  password:
+    generateRandomLength: 16  # Auto-generates secret: risingwave-user-alice
+  grants:
+    databases:
+      - name: dev
+        privileges: [CONNECT]
+        schemas:
+          - name: public
+            privileges: [USAGE]
+            tables:
+              - name: "*"     # Wildcard for all tables in schema
+                privileges: [SELECT]
 ```
 
-**Secret Reference**: Prefix value with `SECRET ` to reference a RisingWave secret:
+**Secret Reference**: Prefix value with `SECRET ` in a `RisingWaveConnection` to reference a RisingWave secret:
+
 - `"SECRET my_secret"` → renders as `SECRET my_secret` in SQL
 - `"literal_value"` → renders as `'literal_value'` in SQL
 
@@ -411,6 +240,15 @@ spec:
 | `risingwave.risingwavelabs.com/rotate-password: "true"`    | Trigger password rotation (auto-cleared) | RisingWaveUser |
 
 **Deletion Policy**: `abandon` (default) - Resource is retained. Use `delete` to remove it from RisingWave.
+
+> **⚠️ Destructive Operations Warning**
+>
+> The operator's `deletion-policy: "delete"` annotation triggers **irreversible operations** that can delete production data:
+>
+> - **DROP DATABASE**: Deletes the entire database and ALL data within it. Cannot be undone.
+> - **DROP SCHEMA CASCADE**: Automatically deletes all objects in the schema (tables, views, materialized views, etc.) and any objects that depend on those objects. Cannot be undone.
+>
+> **Always use `deletion-policy: "abandon"`** for safety by default unless you explicitly intend to delete the resource and its data.
 
 ## Authentication Types
 
@@ -601,23 +439,27 @@ IMG=risingwave-resource-operator:dev make deploy
 
 ## Uninstall
 
-```bash
-# Delete all RisingWaveUser resources first
-kubectl delete risingwaveusers --all --all-namespaces
+To remove the operator and all its resources from the cluster:
 
-# Undeploy operator
+```bash
+# 1. Delete all custom resources across all namespaces
+kubectl delete risingwaveusers --all -A
+kubectl delete risingwaveconnections --all -A
+kubectl delete risingwaveschemas --all -A
+kubectl delete risingwavedatabases --all -A
+
+# 2. Undeploy operator
 make undeploy
 
-# Uninstall CRDs
+# 3. Uninstall CRDs
 make uninstall
 ```
 
 ## Documentation
 
-- [Getting Started Guide](docs/getting-started.md) — Installation and usage examples
-- [Developer Guide](docs/developer-guide.md) — Architecture and contributing
-- [Local Testing Setup](docs/local-testing-setup.md) — Complete local development walkthrough
-- [Implementation Review](docs/implementation-review.md) — Technical implementation details
+- [Getting Started Guide](docs/getting-started.md) — Installation and comprehensive usage examples
+- [Developer Guide](docs/developer-guide.md) — Architecture, local development, and contributing
+- [Local Testing Setup](docs/local-testing-setup.md) — Step-by-step guide for a local `kind` environment
 
 ## License
 

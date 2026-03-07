@@ -1,6 +1,6 @@
 # Getting Started with RisingWave Resource Operator
 
-This guide walks you through installing and using the RisingWave Resource Operator to manage users and privileges in RisingWave.
+This guide walks you through installing and using the RisingWave Resource Operator to manage your RisingWave resources including users, databases, schemas, and connections.
 
 ## Prerequisites
 
@@ -17,10 +17,14 @@ This guide walks you through installing and using the RisingWave Resource Operat
 make install
 ```
 
-Verify the CRD is installed:
+Verify all CRDs are installed:
 
 ```bash
-kubectl get crd risingwaveusers.risingwave.risingwavelabs.com
+kubectl get crd | grep risingwave.risingwavelabs.com
+# risingwaveconnections.risingwave.risingwavelabs.com
+# risingwavedatabases.risingwave.risingwavelabs.com
+# risingwaveschemas.risingwave.risingwavelabs.com
+# risingwaveusers.risingwave.risingwavelabs.com
 ```
 
 ### Step 2: Deploy the Operator
@@ -316,26 +320,101 @@ spec:
   # No password needed for LDAP
 ```
 
+## Resource Types
+
+The operator supports multiple CRDs for managing RisingWave resources at different scopes:
+
+### List All CRDs
+
+```bash
+kubectl get crd | grep risingwave.risingwavelabs.com
+# risingwaveconnections.risingwave.risingwavelabs.com
+# risingwavedatabases.risingwave.risingwavelabs.com
+# risingwaveschemas.risingwave.risingwavelabs.com
+# risingwaveusers.risingwave.risingwavelabs.com
+```
+
+### RisingWaveDatabase
+
+Database-level resource management with owner and deletion policy.
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveDatabase
+metadata:
+  name: analytics-db
+spec:
+  connectionRef:
+    host: risingwave.example.com
+  name: analytics             # Optional: RisingWave database name
+  owner: "analytics_admin"    # Optional: Initial owner
+```
+
+### RisingWaveSchema
+
+Schema-scoped resource management within a database.
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveSchema
+metadata:
+  name: reports-schema
+spec:
+  connectionRef:
+    host: risingwave.example.com
+  databaseRef:
+    name: analytics           # Required: Target database name
+  name: reports               # Optional: RisingWave schema name
+```
+
+### RisingWaveConnection
+
+Reusable connection objects for sources, sinks, and tables with secret support.
+
+```yaml
+apiVersion: risingwave.risingwavelabs.com/v1alpha1
+kind: RisingWaveConnection
+metadata:
+  name: kafka-connection
+spec:
+  connectionRef:
+    host: risingwave.example.com
+  databaseRef:
+    name: analytics
+  schemaRef:                  # Optional: Target schema name (defaults to "public")
+    name: public
+  name: kafka_prod            # Optional: Connection name in RisingWave
+  type: kafka
+  properties:
+    properties.bootstrap.server: "kafka-broker-1:9092"
+    properties.sasl.password: "SECRET kafka_credentials"  # Reference RisingWave secret
+```
+
+**Secret Reference**: Prefix value with `SECRET ` to reference a RisingWave secret.
+
 ## Annotations Reference
 
-| Annotation | Value | Effect | Applies To |
-|-----------|-------|--------|------------|
-| `risingwave.risingwavelabs.com/pause-reconcile` | `"true"` | Pause reconciliation for this resource | All CRDs |
-| `risingwave.risingwavelabs.com/deletion-policy` | `"abandon"` | Skip `DROP` on resource deletion | All CRDs |
-| `risingwave.risingwavelabs.com/rotate-password` | `"true"` | Trigger password rotation | RisingWaveUser |
+| Annotation | Description | Applies To |
+|-----------|-------------|------------|
+| `risingwave.risingwavelabs.com/pause-reconcile: "true"` | Pause reconciliation | All CRDs |
+| `risingwave.risingwavelabs.com/deletion-policy: "abandon"` | Skip `DROP` on resource deletion | All CRDs |
+| `risingwave.risingwavelabs.com/rotate-password: "true"` | Trigger password rotation | RisingWaveUser |
 
 **Deletion Policy**: `abandon` (default) - Resource is retained. Use `delete` to remove it from RisingWave.
 
 ## Status Fields
 
-| Field | Description |
-|-------|-------------|
-| `.status.phase` | `Ready` or `NotReady` |
-| `.status.reason` | Reason for current phase |
-| `.status.userCreated` | Whether the user was created in RisingWave |
-| `.status.privilegesSynced` | Whether privileges have been synced |
-| `.status.secretName` | Name of the secret with user password |
-| `.status.observedGeneration` | Last observed generation |
+| Field | Description | Applies To |
+|-------|-------------|------------|
+| `.status.phase` | `Ready` or `NotReady` | All CRDs |
+| `.status.reason` | Human-readable reason for current phase | All CRDs |
+| `.status.conditions[]` | Detailed status conditions | All CRDs |
+| `.status.observedGeneration` | Last observed generation | All CRDs |
+| `.status.userCreated` | Whether the user was created | RisingWaveUser |
+| `.status.privilegesSynced` | Whether privileges have been synced | RisingWaveUser |
+| `.status.databaseCreated` | Whether the database exists | RisingWaveDatabase |
+| `.status.schemaCreated` | Whether the schema exists | RisingWaveSchema |
+| `.status.connectionCreated`| Whether the connection exists | RisingWaveConnection |
 
 ## Examples
 
@@ -445,243 +524,100 @@ spec:
                   - INSERT
 ```
 
-## Resource Types
+## API Reference
 
-The operator supports multiple CRDs for managing RisingWave resources at different scopes:
+### ConnectionRef (Shared)
 
-### List All CRDs
-
-```bash
-kubectl get crd
-# risingwaveconnections.risingwavelabs.com
-# risingwavedatabases.risingwavelabs.com
-# risingwaveschemas.risingwavelabs.com
-# risingwaveusers.risingwavelabs.com
-```
-
-### RisingWaveDatabase CRD
-
-Database-level resource management with owner and deletion policy.
+All CRDs use a `connectionRef` to specify the target RisingWave cluster.
 
 ```yaml
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveDatabase
-metadata:
-  name: analytics-db
-  namespace: default
+connectionRef:
+  host: string                 # Required: RisingWave hostname/service
+  port: int32                  # Optional: defaults to 4567
+  credentials:                 # Optional admin credentials
+    username: string           # defaults to "root"
+    passwordSecretRef:         # Recommended for admin password
+      name: string
+      key: string
+```
+
+### RisingWaveDatabase Spec
+
+```yaml
 spec:
-  connectionRef:
-    host: risingwave.example.com
-    port: 4567
-    credentials:
-      username: root
-      password: ""
-  name: analytics
-  owner: "analytics_admin"
+  connectionRef: ConnectionRef # Required
+  name: string                 # Optional: defaults to metadata.name
+  owner: string                # Optional: Initial owner
 ```
 
-**Deletion Policy**:
+### RisingWaveSchema Spec
 
 ```yaml
-metadata:
-  annotations:
-    # Skip DROP DATABASE on deletion (default)
-    risingwave.risingwavelabs.com/deletion-policy: "abandon"
-  # Or explicitly drop the database
-  # risingwave.risingwavelabs.com/deletion-policy: "delete"
-```
-
-### RisingWaveSchema CRD
-
-Schema-scoped resource management with safe-by-default deletion.
-
-```yaml
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveSchema
-metadata:
-  name: reports-schema
-  namespace: default
 spec:
-  connectionRef:
-    host: risingwave.example.com
-    port: 4567
-    credentials:
-      username: root
-      password: ""
-  databaseRef:
-    name: analytics
-  name: reports
+  connectionRef: ConnectionRef # Required
+  databaseRef:                 # Required
+    name: string
+  name: string                 # Optional: defaults to metadata.name
 ```
 
-### RisingWaveConnection CRD
-
-Reusable connection objects for sources, sinks, and tables with secret support.
+### RisingWaveConnection Spec
 
 ```yaml
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveConnection
-metadata:
-  name: kafka-connection
 spec:
-  connectionRef:
-    host: risingwave.example.com
-    port: 4567
-    credentials:
-      username: root
-      password: ""
-  databaseRef:
-    name: analytics
-  name: kafka_prod
-  type: kafka
-  properties:
-    properties.bootstrap.server: "kafka-broker-1:9092"
-    properties.security.protocol: "SASL_SSL"
-    properties.sasl.username: "my-user"
-    properties.sasl.password: "SECRET kafka_credentials"
+  connectionRef: ConnectionRef # Required
+  databaseRef:                 # Required
+    name: string
+  schemaRef:                   # Optional: defaults to "public"
+    name: string
+  name: string                 # Optional: defaults to metadata.name
+  type: string                 # e.g., "kafka", "iceberg"
+  properties: map[string]string # Key-value pairs for WITH clause
 ```
 
-**Secret Reference**: Prefix value with `SECRET ` to reference a RisingWave secret:
+### RisingWaveUser Spec
 
-- `"SECRET my_secret"` → renders as `SECRET my_secret` in SQL
-- `"literal_value"` → renders as `'literal_value'` in SQL
-
-## Annotations Reference
-
-| Annotation | Value | Effect | Applies To |
-|------------|-------|--------|------------|
-| `risingwave.risingwavelabs.com/pause-reconcile` | `"true"` | Pause reconciliation for this resource | All CRDs |
-| `risingwave.risingwavelabs.com/deletion-policy` | `"abandon"` | Skip `DROP` on resource deletion | All CRDs |
-| `risingwave.risingwavelabs.com/rotate-password` | `"true"` | Trigger password rotation | RisingWaveUser |
-
-**Deletion Policy**: `abandon` (default) - Resource is retained. Use `delete` to remove it from RisingWave.
+```yaml
+spec:
+  connectionRef: ConnectionRef # Required
+  name: string                 # Optional: defaults to metadata.name
+  password:                    # Optional password config
+    generateRandomLength: int  # 8-32
+    secretRef:                 # Or reference existing secret
+      name: string
+      key: string
+  auth:                        # Optional auth method
+    type: "password"|"oauth"|"ldap"
+  grants:                      # Hierarchical privilege grants
+    databases:
+      - name: string
+        privileges: [string]
+        schemas:
+          - name: string
+            privileges: [string]
+            tables:
+              - name: string   # Use "*" for all tables
+                privileges: [string]
+```
 
 ## Uninstall
 
 ```bash
-# Delete all RisingWaveUser resources first
-kubectl delete risingwaveusers --all --all-namespaces
+# 1. Delete all resources
+kubectl delete risingwaveusers --all -A
+kubectl delete risingwaveconnections --all -A
+kubectl delete risingwaveschemas --all -A
+kubectl delete risingwavedatabases --all -A
 
-# Undeploy the operator
-make undeploy
-
-# Uninstall CRDs
-make uninstall
-```
-
-## Troubleshooting
-
-### Check Operator Logs
-
-```bash
-kubectl logs -n risingwave-resource-operator-system \
-  deployment/risingwave-resource-operator-controller-manager -f
-```
-
-### View Resource Events
-
-```bash
-kubectl describe risingwaveuser <name>
-```
-
-### Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| User not created | Verify `connectionRef` host/port is correct, check RisingWave is reachable |
-| Privileges not granted | Check database/schema exists, verify `status.phase` is `Ready` |
-| Secret not created | Check operator RBAC permissions, verify operator can create secrets in the namespace |
-| Password rotation not working | Verify annotation is exactly `risingwave.risingwavelabs.com/rotate-password: "true"` |
-| Connection refused | Verify RisingWave service is accessible from operator pod |
-
-### Debug Connection
-
-Test connectivity from operator pod:
-
-```bash
-kubectl run -it --rm debug --image=postgres:latest --restart=Never -- \
-  psql -h risingwave.example.com -p 4567 -U root -d dev
-```
-
-## Advanced Features
-
-### WITH GRANT OPTION
-
-Allow users to grant their privileges to others:
-
-```yaml
-grants:
-  databases:
-    - name: dev
-      privileges:
-        - CONNECT
-      schemas:
-        - name: public
-          tables:
-            - name: users
-              privileges:
-                - SELECT
-              withGrantOption: true
-```
-
-### ALL Privilege Shorthand
-
-Grant all available privileges:
-
-```yaml
-grants:
-  databases:
-    - name: dev
-      privileges:
-        - ALL
-      schemas:
-        - name: public
-          tables:
-            - name: users
-              privileges:
-                - ALL
-```
-
-### Multiple Object Types
-
-Grant privileges on different object types in one specification:
-
-```yaml
-grants:
-  databases:
-    - name: dev
-      privileges:
-        - CONNECT
-      schemas:
-        - name: public
-          tables:
-            - name: users
-              privileges:
-                - SELECT
-                - INSERT
-          views:
-            - name: user_summary
-              privileges:
-                - SELECT
-          materializedViews:
-            - name: user_metrics
-              privileges:
-                - SELECT
-          sources:
-            - name: events_source
-              privileges:
-                - SELECT
-          functions:
-            - name: process_data
-              privileges:
-                - EXECUTE
+# 2. Undeploy
+make undeploy && make uninstall
 ```
 
 ## See Also
 
 - [Developer Guide](developer-guide.md) - For contributors
 - [Local Testing Setup](local-testing-setup.md) - For local development
-- [Implementation Review](implementation-review.md) - Technical details
+- [Project Readme](../README.md) - Overview and architecture
 
 ---
 
-Last updated: 2026-02-28
+Last updated: 2026-03-07
