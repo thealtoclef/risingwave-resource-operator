@@ -402,6 +402,8 @@ spec:
 
 **Deletion Policy**: `abandon` (default) - Resource is retained. Use `delete` to remove it from RisingWave.
 
+> **Note**: The `public` schema is protected from deletion. Even with `deletion-policy: "delete"`, the operator will retain the `public` schema because it is created by default in every RisingWave database.
+
 ## Status Fields
 
 | Field | Description | Applies To |

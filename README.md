@@ -250,6 +250,10 @@ spec:
 >
 > **Always use `deletion-policy: "abandon"`** for safety by default unless you explicitly intend to delete the resource and its data.
 
+> **🛡️ Protected Resources**
+>
+> The `public` schema is protected from deletion. Even with `deletion-policy: "delete"`, the operator will retain the `public` schema. This schema is created by default in every RisingWave database and should not be dropped.
+
 ## Authentication Types
 
 ### Password (Default)
