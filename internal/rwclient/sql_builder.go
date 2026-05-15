@@ -165,11 +165,6 @@ func buildSchemaPrivilegesHierarchical(userName string, database string, schemaP
 		statements = append(statements, buildGrantNestedSinkPrivilege(userName, database, schemaPriv.Name, &sinkPriv))
 	}
 
-	// Nested connection privileges
-	for _, connPriv := range schemaPriv.Connections {
-		statements = append(statements, buildGrantNestedConnectionPrivilege(userName, database, schemaPriv.Name, &connPriv))
-	}
-
 	// Nested secret privileges
 	for _, secretPriv := range schemaPriv.Secrets {
 		statements = append(statements, buildGrantNestedSecretPrivilege(userName, database, schemaPriv.Name, &secretPriv))
@@ -281,21 +276,6 @@ func buildRevokeNestedSinkPrivilege(userName string, database, schema string, pr
 			QuoteUser(userName))
 	}
 	return fmt.Sprintf("REVOKE %s ON SINK %s.%s.%s FROM %s",
-		normalizePrivileges(priv.Privileges),
-		QuoteIdentifier(database),
-		QuoteIdentifier(schema),
-		QuoteIdentifier(priv.Name),
-		QuoteUser(userName))
-}
-
-func buildRevokeNestedConnectionPrivilege(userName string, database, schema string, priv *v1alpha1.NestedConnectionPrivilege) string {
-	if priv.Name == "*" {
-		return fmt.Sprintf("REVOKE %s ON ALL CONNECTIONS IN SCHEMA %s FROM %s",
-			normalizePrivileges(priv.Privileges),
-			QuoteIdentifier(schema),
-			QuoteUser(userName))
-	}
-	return fmt.Sprintf("REVOKE %s ON CONNECTION %s.%s.%s FROM %s",
 		normalizePrivileges(priv.Privileges),
 		QuoteIdentifier(database),
 		QuoteIdentifier(schema),
@@ -418,23 +398,6 @@ func buildGrantNestedSinkPrivilege(userName string, database, schema string, pri
 		buildGrantOption(priv.WithGrantOption))
 }
 
-func buildGrantNestedConnectionPrivilege(userName string, database, schema string, priv *v1alpha1.NestedConnectionPrivilege) string {
-	if priv.Name == "*" {
-		return fmt.Sprintf("GRANT %s ON ALL CONNECTIONS IN SCHEMA %s TO %s%s",
-			normalizePrivileges(priv.Privileges),
-			QuoteIdentifier(schema),
-			QuoteUser(userName),
-			buildGrantOption(priv.WithGrantOption))
-	}
-	return fmt.Sprintf("GRANT %s ON CONNECTION %s.%s.%s TO %s%s",
-		normalizePrivileges(priv.Privileges),
-		QuoteIdentifier(database),
-		QuoteIdentifier(schema),
-		QuoteIdentifier(priv.Name),
-		QuoteUser(userName),
-		buildGrantOption(priv.WithGrantOption))
-}
-
 func buildGrantNestedSecretPrivilege(userName string, database, schema string, priv *v1alpha1.NestedSecretPrivilege) string {
 	if priv.Name == "*" {
 		return fmt.Sprintf("GRANT %s ON ALL SECRETS IN SCHEMA %s TO %s%s",
@@ -521,12 +484,6 @@ func BuildRevokeStatements(userName string, spec *v1alpha1.RisingWaveUserSpec) [
 			if len(schemaPriv.Sinks) > 0 {
 				for _, objPriv := range schemaPriv.Sinks {
 					stmt := buildRevokeNestedSinkPrivilege(userName, dbPriv.Name, schemaPriv.Name, &objPriv)
-					statements = append(statements, stmt)
-				}
-			}
-			if len(schemaPriv.Connections) > 0 {
-				for _, objPriv := range schemaPriv.Connections {
-					stmt := buildRevokeNestedConnectionPrivilege(userName, dbPriv.Name, schemaPriv.Name, &objPriv)
 					statements = append(statements, stmt)
 				}
 			}

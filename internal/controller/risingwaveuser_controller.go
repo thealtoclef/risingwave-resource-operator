@@ -624,33 +624,6 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 					}
 				}
 
-				// Revoke orphaned connections
-				actualConnsMap := make(map[string]rwclient.ObjectPrivilege)
-				for _, c := range actualSchema.Connections {
-					actualConnsMap[c.Name] = c
-				}
-				hasWildcardConn := false
-				for _, connSpec := range schemaSpec.Connections {
-					if connSpec.Name == "*" {
-						hasWildcardConn = true
-					}
-					delete(actualConnsMap, connSpec.Name)
-				}
-				for _, orphanConn := range actualConnsMap {
-					if orphanConn.Name == "*" {
-						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
-							fmt.Sprintf("REVOKE ALL ON ALL CONNECTIONS IN SCHEMA %s FROM %s",
-								rwclient.QuoteIdentifier(schemaSpec.Name),
-								rwclient.QuoteUser(userName)))
-					} else if !hasWildcardConn {
-						statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements,
-							fmt.Sprintf("REVOKE ALL ON CONNECTION %s.%s FROM %s",
-								rwclient.QuoteIdentifier(schemaSpec.Name),
-								rwclient.QuoteIdentifier(orphanConn.Name),
-								rwclient.QuoteUser(userName)))
-					}
-				}
-
 				// Revoke orphaned secrets
 				actualSecretsMap := make(map[string]rwclient.ObjectPrivilege)
 				for _, s := range actualSchema.Secrets {
@@ -769,19 +742,6 @@ func (r *RisingWaveUserReconciler) syncPrivileges(ctx context.Context, db *sql.D
 				sinkDiff := rwclient.CalculateObjectDiff(userName, dbSpec.Name, schemaSpec.Name, objType, actualObj, sinkSpec.Name, desiredPrivs)
 				statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements, sinkDiff.ToRevoke...)
 				statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements, sinkDiff.ToGrant...)
-			}
-
-			// Process connections
-			for _, connSpec := range schemaSpec.Connections {
-				actualObj := findObjectPrivilege(actualSchema.Connections, connSpec.Name)
-				desiredPrivs := privilegeSliceToString(connSpec.Privileges)
-				objType := "CONNECTION"
-				if connSpec.Name == "*" {
-					objType = "ALL CONNECTIONS IN SCHEMA"
-				}
-				connDiff := rwclient.CalculateObjectDiff(userName, dbSpec.Name, schemaSpec.Name, objType, actualObj, connSpec.Name, desiredPrivs)
-				statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements, connDiff.ToRevoke...)
-				statementsByDB[dbSpec.Name].statements = append(statementsByDB[dbSpec.Name].statements, connDiff.ToGrant...)
 			}
 
 			// Process secrets

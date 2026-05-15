@@ -4,7 +4,6 @@ resources:
 - risingwave_v1alpha1_risingwaveuser.yaml
 - risingwave_v1alpha1_risingwavedatabase.yaml
 - risingwave_v1alpha1_risingwaveschema.yaml
-- risingwave_v1alpha1_risingwaveconnection.yaml
 commonLabels:
   app.kubernetes.io/name: risingwave-resource-operator
   app.kubernetes.io/component: sample

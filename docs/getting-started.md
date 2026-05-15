@@ -21,7 +21,6 @@ Verify all CRDs are installed:
 
 ```bash
 kubectl get crd | grep risingwave.risingwavelabs.com
-# risingwaveconnections.risingwave.risingwavelabs.com
 # risingwavedatabases.risingwave.risingwavelabs.com
 # risingwaveschemas.risingwave.risingwavelabs.com
 # risingwaveusers.risingwave.risingwavelabs.com
@@ -218,7 +217,6 @@ The operator supports privileges for:
 | **Materialized View** | SELECT, ALL |
 | **Source** | SELECT, ALL |
 | **Sink** | SELECT, ALL |
-| **Connection** | USAGE, ALL |
 | **Secret** | USAGE, ALL |
 | **Function** | EXECUTE, ALL |
 
@@ -328,7 +326,6 @@ The operator supports multiple CRDs for managing RisingWave resources at differe
 
 ```bash
 kubectl get crd | grep risingwave.risingwavelabs.com
-# risingwaveconnections.risingwave.risingwavelabs.com
 # risingwavedatabases.risingwave.risingwavelabs.com
 # risingwaveschemas.risingwave.risingwavelabs.com
 # risingwaveusers.risingwave.risingwavelabs.com
@@ -367,31 +364,6 @@ spec:
   name: reports               # Optional: RisingWave schema name
 ```
 
-### RisingWaveConnection
-
-Reusable connection objects for sources, sinks, and tables with secret support.
-
-```yaml
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveConnection
-metadata:
-  name: kafka-connection
-spec:
-  connectionRef:
-    host: risingwave.example.com
-  databaseRef:
-    name: analytics
-  schemaRef:                  # Optional: Target schema name (defaults to "public")
-    name: public
-  name: kafka_prod            # Optional: Connection name in RisingWave
-  type: kafka
-  properties:
-    properties.bootstrap.server: "kafka-broker-1:9092"
-    properties.sasl.password: "SECRET kafka_credentials"  # Reference RisingWave secret
-```
-
-**Secret Reference**: Prefix value with `SECRET ` to reference a RisingWave secret.
-
 ## Annotations Reference
 
 | Annotation | Description | Applies To |
@@ -416,7 +388,6 @@ spec:
 | `.status.privilegesSynced` | Whether privileges have been synced | RisingWaveUser |
 | `.status.databaseCreated` | Whether the database exists | RisingWaveDatabase |
 | `.status.schemaCreated` | Whether the schema exists | RisingWaveSchema |
-| `.status.connectionCreated`| Whether the connection exists | RisingWaveConnection |
 
 ## Examples
 
@@ -562,20 +533,6 @@ spec:
   name: string                 # Optional: defaults to metadata.name
 ```
 
-### RisingWaveConnection Spec
-
-```yaml
-spec:
-  connectionRef: ConnectionRef # Required
-  databaseRef:                 # Required
-    name: string
-  schemaRef:                   # Optional: defaults to "public"
-    name: string
-  name: string                 # Optional: defaults to metadata.name
-  type: string                 # e.g., "kafka", "iceberg"
-  properties: map[string]string # Key-value pairs for WITH clause
-```
-
 ### RisingWaveUser Spec
 
 ```yaml
@@ -606,7 +563,6 @@ spec:
 ```bash
 # 1. Delete all resources
 kubectl delete risingwaveusers --all -A
-kubectl delete risingwaveconnections --all -A
 kubectl delete risingwaveschemas --all -A
 kubectl delete risingwavedatabases --all -A
 

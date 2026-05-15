@@ -150,16 +150,6 @@ func MapCharToSinkPrivilege(char string) v1alpha1.SinkPrivilegeType {
 	}
 }
 
-// MapCharToConnectionPrivilege maps ACL characters to v1alpha1.ConnectionPrivilegeType.
-func MapCharToConnectionPrivilege(char string) v1alpha1.ConnectionPrivilegeType {
-	switch char {
-	case "U":
-		return v1alpha1.ConnectionPrivilegeUsage
-	default:
-		return ""
-	}
-}
-
 // MapCharToSecretPrivilege maps ACL characters to v1alpha1.SecretPrivilegeType.
 func MapCharToSecretPrivilege(char string) v1alpha1.SecretPrivilegeType {
 	switch char {
@@ -193,11 +183,6 @@ func MapCharToSourcePrivilegeString(char string) string {
 // MapCharToSinkPrivilegeString maps ACL characters to sink privilege strings.
 func MapCharToSinkPrivilegeString(char string) string {
 	return string(MapCharToSinkPrivilege(char))
-}
-
-// MapCharToConnectionPrivilegeString maps ACL characters to connection privilege strings.
-func MapCharToConnectionPrivilegeString(char string) string {
-	return string(MapCharToConnectionPrivilege(char))
 }
 
 // MapCharToSecretPrivilegeString maps ACL characters to secret privilege strings.

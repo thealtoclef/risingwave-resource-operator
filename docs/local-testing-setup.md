@@ -482,10 +482,6 @@ spec:
               - name: results_sink
                 privileges:
                   - SELECT
-            connections:
-              - name: kafka_connection
-                privileges:
-                  - USAGE
             secrets:
               - name: aws_credentials
                 privileges:
@@ -540,75 +536,6 @@ EOF
 
 # Check status
 kubectl get risingwaveschema reports-schema -n test-databases
-```
-
-### 9.3: Test RisingWaveConnection (Kafka)
-
-```bash
-kubectl apply -f - <<EOF
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveConnection
-metadata:
-  name: kafka-test
-  namespace: test-databases
-spec:
-  connectionRef:
-    host: risingwave.risingwave.svc.cluster.local
-  databaseRef:
-    name: analytics
-  schemaRef:                  # Optional: Target schema name (defaults to "public")
-    name: public
-  name: kafka_test
-  type: kafka
-  properties:
-    properties.bootstrap.server: "kafka-broker:9092"
-    properties.security.protocol: "PLAINTEXT"
-EOF
-
-# Check status
-kubectl get risingwaveconnection kafka-test -n test-databases
-```
-
-### 9.4: Test Deletion Policy
-
-The deletion policy controls whether the operator drops the object in RisingWave when the Kubernetes resource is deleted.
-
-- `abandon` (default): Deleting the CR does *not* delete the object in RisingWave.
-- `delete`: Deleting the CR *will* drop the object in RisingWave.
-
-### 9.5: Test Secret Reference
-
-The `RisingWaveConnection` can reference secrets managed within RisingWave (using `CREATE SECRET` in SQL). Note that this is distinct from Kubernetes secrets.
-
-```bash
-# Test with literal values (standard for most testing)
-kubectl apply -f - <<EOF
-apiVersion: risingwave.risingwavelabs.com/v1alpha1
-kind: RisingWaveConnection
-metadata:
-  name: iceberg-literal
-  namespace: test-databases
-spec:
-  connectionRef:
-    host: risingwave.risingwave.svc.cluster.local
-  databaseRef:
-    name: analytics
-  schemaRef:                  # Optional: Target schema name (defaults to "public")
-    name: public
-  name: iceberg_literal
-  type: iceberg
-  properties:
-    catalog.type: "storage"
-    catalog.name: "demo"
-    warehouse.path: "s3a://test-bucket/"
-    s3.endpoint: "http://minio:9000"
-    s3.access.key: "minioadmin"
-    s3.secret.key: "minioadmin"
-EOF
-```
-
-# Check status
-kubectl get risingwaveconnection iceberg-literal -n test-databases
 ```
 
 ## Step 10: Run Tests
@@ -671,7 +598,6 @@ kubectl exec -n risingwave-resource-operator-system \
 ```bash
 # 1. Delete all resources across all test namespaces
 kubectl delete risingwaveusers --all -A
-kubectl delete risingwaveconnections --all -A
 kubectl delete risingwaveschemas --all -A
 kubectl delete risingwavedatabases --all -A
 
@@ -716,18 +642,6 @@ spec:
   connectionRef: ConnectionRef # Required
   databaseRef: { name: string } # Required
   name: string                 # RisingWave schema name
-```
-
-### RisingWaveConnection
-
-```yaml
-spec:
-  connectionRef: ConnectionRef # Required
-  databaseRef: { name: string } # Required
-  schemaRef: { name: string }   # default: "public"
-  name: string                 # Connection name
-  type: string                 # e.g., "kafka"
-  properties: map[string]string
 ```
 
 ### RisingWaveUser

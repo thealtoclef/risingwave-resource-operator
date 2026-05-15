@@ -224,36 +224,6 @@ func TestBuildRevokeStatements(t *testing.T) {
 			},
 		},
 		{
-			name:     "connection privileges",
-			userName: "testuser",
-			spec: &v1alpha1.RisingWaveUserSpec{
-				Grants: &v1alpha1.GrantSpec{
-					Databases: []v1alpha1.DatabasePrivilege{
-						{
-							Name: "mydb",
-							Schemas: []v1alpha1.NestedSchemaPrivilege{
-								{
-									Name: "public",
-									Connections: []v1alpha1.NestedConnectionPrivilege{
-										{
-											Name: "myconn",
-											Privileges: []v1alpha1.ConnectionPrivilegeType{
-												v1alpha1.ConnectionPrivilegeUsage,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantLen: 1,
-			contains: []string{
-				`REVOKE USAGE ON CONNECTION "mydb"."public"."myconn" FROM "testuser"`,
-			},
-		},
-		{
 			name:     "secret privileges",
 			userName: "testuser",
 			spec: &v1alpha1.RisingWaveUserSpec{

@@ -39,7 +39,6 @@ type SchemaPrivilegeSnapshot struct {
 	MaterializedViews []ObjectPrivilege
 	Sources           []ObjectPrivilege
 	Sinks             []ObjectPrivilege
-	Connections       []ObjectPrivilege
 	Secrets           []ObjectPrivilege
 	Functions         []ObjectPrivilege
 }
@@ -150,14 +149,7 @@ func FetchSchemaPrivileges(ctx context.Context, db DatabaseAccessor, userName st
 		}
 		schemas[i].Sinks = sinks
 
-		// 7. Fetch Connections
-		connections, err := fetchConnectionPrivs(ctx, db, schemas[i].Name, userName)
-		if err != nil {
-			return nil, err
-		}
-		schemas[i].Connections = connections
-
-		// 8. Fetch Secrets
+		// 7. Fetch Secrets
 		secrets, err := fetchSecretPrivs(ctx, db, schemas[i].Name, userName)
 		if err != nil {
 			return nil, err
@@ -297,11 +289,6 @@ func fetchSourcePrivs(ctx context.Context, db DatabaseAccessor, schemaName, user
 // fetchSinkPrivs fetches sink privileges for a user in a schema.
 func fetchSinkPrivs(ctx context.Context, db DatabaseAccessor, schemaName, userName string) ([]ObjectPrivilege, error) {
 	return fetchObjectPrivsCustom(ctx, db, "rw_sinks", schemaName, userName, MapCharToSinkPrivilegeString)
-}
-
-// fetchConnectionPrivs fetches connection privileges for a user in a schema.
-func fetchConnectionPrivs(ctx context.Context, db DatabaseAccessor, schemaName, userName string) ([]ObjectPrivilege, error) {
-	return fetchObjectPrivsCustom(ctx, db, "rw_connections", schemaName, userName, MapCharToConnectionPrivilegeString)
 }
 
 // fetchSecretPrivs fetches secret privileges for a user in a schema.

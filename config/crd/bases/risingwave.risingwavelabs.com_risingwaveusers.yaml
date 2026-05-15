@@ -204,34 +204,6 @@ spec:
                               NestedSchemaPrivilege defines privileges on a schema within a database.
                               The database name is inherited from the parent DatabasePrivilege.
                             properties:
-                              connections:
-                                items:
-                                  description: |-
-                                    NestedConnectionPrivilege defines privileges on a connection within a schema.
-                                    The database and schema names are inherited from parent levels.
-                                  properties:
-                                    name:
-                                      description: Connection name. Use "*" for all
-                                        connections in the schema.
-                                      type: string
-                                    privileges:
-                                      description: Privileges to grant. Valid values
-                                        are USAGE, ALL.
-                                      items:
-                                        description: |-
-                                          ConnectionPrivilegeType represents connection privilege types.
-                                          Privilege value validation is delegated to RisingWave during SQL execution.
-                                        type: string
-                                      type: array
-                                    withGrantOption:
-                                      description: Grant option allows the grantee
-                                        to grant these privileges to others.
-                                      type: boolean
-                                  required:
-                                  - name
-                                  - privileges
-                                  type: object
-                                type: array
                               functions:
                                 items:
                                   description: |-

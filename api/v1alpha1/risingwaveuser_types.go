@@ -261,9 +261,6 @@ type NestedSchemaPrivilege struct {
 	Sinks []NestedSinkPrivilege `json:"sinks,omitempty"`
 
 	// +optional
-	Connections []NestedConnectionPrivilege `json:"connections,omitempty"`
-
-	// +optional
 	Secrets []NestedSecretPrivilege `json:"secrets,omitempty"`
 
 	// +optional
@@ -413,31 +410,6 @@ type SinkPrivilegeType string
 const (
 	SinkPrivilegeSelect SinkPrivilegeType = "SELECT"
 	SinkPrivilegeAll    SinkPrivilegeType = "ALL"
-)
-
-// NestedConnectionPrivilege defines privileges on a connection within a schema.
-// The database and schema names are inherited from parent levels.
-type NestedConnectionPrivilege struct {
-	// Connection name. Use "*" for all connections in the schema.
-	// +kubebuilder:validation:Required
-	Name string `json:"name"`
-
-	// Privileges to grant. Valid values are USAGE, ALL.
-	// +kubebuilder:validation:Required
-	Privileges []ConnectionPrivilegeType `json:"privileges"`
-
-	// Grant option allows the grantee to grant these privileges to others.
-	// +optional
-	WithGrantOption bool `json:"withGrantOption,omitempty"`
-}
-
-// ConnectionPrivilegeType represents connection privilege types.
-// Privilege value validation is delegated to RisingWave during SQL execution.
-type ConnectionPrivilegeType string
-
-const (
-	ConnectionPrivilegeUsage ConnectionPrivilegeType = "USAGE"
-	ConnectionPrivilegeAll   ConnectionPrivilegeType = "ALL"
 )
 
 // NestedSecretPrivilege defines privileges on a secret within a schema.

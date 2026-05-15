@@ -82,30 +82,12 @@ var (
 		},
 	)
 
-	connectionCreatedTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: MetricsNamespace,
-			Name:      "risingwave_connection_created_total",
-			Help:      "Number of created RisingWave connections",
-		},
-	)
-
-	connectionDeletedTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: MetricsNamespace,
-			Name:      "risingwave_connection_deleted_total",
-			Help:      "Number of deleted RisingWave connections",
-		},
-	)
-
-	RisingWaveUserCreatedTotal       = &RisingWaveUserTotalAdaptor{metric: userCreatedTotal}
-	RisingWaveUserDeletedTotal       = &RisingWaveUserTotalAdaptor{metric: userDeletedTotal}
-	RisingWaveDatabaseCreatedTotal   = &RisingWaveUserTotalAdaptor{metric: databaseCreatedTotal}
-	RisingWaveDatabaseDeletedTotal   = &RisingWaveUserTotalAdaptor{metric: databaseDeletedTotal}
-	RisingWaveSchemaCreatedTotal     = &RisingWaveUserTotalAdaptor{metric: schemaCreatedTotal}
-	RisingWaveSchemaDeletedTotal     = &RisingWaveUserTotalAdaptor{metric: schemaDeletedTotal}
-	RisingWaveConnectionCreatedTotal = &RisingWaveUserTotalAdaptor{metric: connectionCreatedTotal}
-	RisingWaveConnectionDeletedTotal = &RisingWaveUserTotalAdaptor{metric: connectionDeletedTotal}
+	RisingWaveUserCreatedTotal     = &RisingWaveUserTotalAdaptor{metric: userCreatedTotal}
+	RisingWaveUserDeletedTotal     = &RisingWaveUserTotalAdaptor{metric: userDeletedTotal}
+	RisingWaveDatabaseCreatedTotal = &RisingWaveUserTotalAdaptor{metric: databaseCreatedTotal}
+	RisingWaveDatabaseDeletedTotal = &RisingWaveUserTotalAdaptor{metric: databaseDeletedTotal}
+	RisingWaveSchemaCreatedTotal   = &RisingWaveUserTotalAdaptor{metric: schemaCreatedTotal}
+	RisingWaveSchemaDeletedTotal   = &RisingWaveUserTotalAdaptor{metric: schemaDeletedTotal}
 )
 
 func init() {
@@ -116,7 +98,5 @@ func init() {
 		databaseDeletedTotal,
 		schemaCreatedTotal,
 		schemaDeletedTotal,
-		connectionCreatedTotal,
-		connectionDeletedTotal,
 	)
 }

@@ -138,31 +138,3 @@ func TestRisingWaveSchemaDeletedTotal(t *testing.T) {
 	// Test that Increment() method exists and is callable
 	RisingWaveSchemaDeletedTotal.Increment()
 }
-
-func TestRisingWaveConnectionCreatedTotal(t *testing.T) {
-	if RisingWaveConnectionCreatedTotal == nil {
-		t.Fatal("RisingWaveConnectionCreatedTotal not initialized")
-	}
-
-	// Test type
-	if reflect.TypeOf(RisingWaveConnectionCreatedTotal).String() != "*metrics.RisingWaveUserTotalAdaptor" {
-		t.Errorf("RisingWaveConnectionCreatedTotal type = %T, want *RisingWaveUserTotalAdaptor", RisingWaveConnectionCreatedTotal)
-	}
-
-	// Test that Increment() method exists and is callable
-	RisingWaveConnectionCreatedTotal.Increment()
-}
-
-func TestRisingWaveConnectionDeletedTotal(t *testing.T) {
-	if RisingWaveConnectionDeletedTotal == nil {
-		t.Fatal("RisingWaveConnectionDeletedTotal not initialized")
-	}
-
-	// Test type
-	if reflect.TypeOf(RisingWaveConnectionDeletedTotal).String() != "*metrics.RisingWaveUserTotalAdaptor" {
-		t.Errorf("RisingWaveConnectionDeletedTotal type = %T, want *RisingWaveUserTotalAdaptor", RisingWaveConnectionDeletedTotal)
-	}
-
-	// Test that Increment() method exists and is callable
-	RisingWaveConnectionDeletedTotal.Increment()
-}

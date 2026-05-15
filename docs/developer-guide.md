@@ -8,7 +8,6 @@ This guide covers local development, testing, and deployment of the RisingWave r
 
 1. **Watch** — Operator watches for changes to all CRD types:
    - `RisingWaveUser`
-   - `RisingWaveConnection`
    - `RisingWaveDatabase`
    - `RisingWaveSchema`
 
@@ -35,7 +34,6 @@ The operator maintains a connection pool (`internal/rwclient.Pool`) keyed by `na
 | Component                                          | Purpose                                             |
 | -------------------------------------------------- | --------------------------------------------------- |
 | `internal/rwclient.Pool`                           | PostgreSQL connection management                    |
-| `internal/rwclient.connection_sql_builder.go`      | SQL generation for connections                      |
 | `internal/rwclient.database_client.go`             | SQL generation for databases and schemas            |
 | `internal/rwclient.sql_builder.go`                 | SQL generation for users and privileges            |
 | `internal/rwclient.privilege_snapshot.go`          | Fetch privileges from database                      |
@@ -43,7 +41,6 @@ The operator maintains a connection pool (`internal/rwclient.Pool`) keyed by `na
 | `internal/rwclient.acl_parser.go`                  | Parse RisingWave ACL format                         |
 | `internal/utils.password.go`                       | Generate random passwords                           |
 | `internal/controller.risingwaveuser_controller.go` | Main reconciler for RisingWaveUser CRD              |
-| `internal/controller.risingwaveconnection_controller.go` | Main reconciler for RisingWaveConnection CRD      |
 | `internal/controller.risingwavedatabase_controller.go` | Main reconciler for RisingWaveDatabase CRD        |
 | `internal/controller/risingwaveschema_controller.go` | Main reconciler for RisingWaveSchema CRD          |
 
